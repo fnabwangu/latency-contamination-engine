@@ -49,7 +49,7 @@ class DecisionContext:
     evidence: List[EvidenceItem] = field(default_factory=list)
     latency_contamination_checked: bool = False
     strategy_universe_locked: bool = False
-    strategy_universe: Sequence[str] = field(default_factory=tuple)
+    strategy_universe: Sequence[str] = ()
     previous_recommendations_as_evidence: bool = True
 
 
@@ -60,6 +60,7 @@ class LatencyContaminationGate:
         self._strategy_universe = tuple(strategy_universe or DEFAULT_STRATEGY_UNIVERSE)
 
     def sanitize_context(self, ctx: DecisionContext) -> MutableMapping[str, object]:
+        """Mutates ctx in place with sanitized evidence and lock state."""
         ctx.evidence.clear()
 
         self._add_evidence(ctx, ctx.observations, EpistemicType.MARKET_EVIDENCE)
@@ -142,16 +143,19 @@ class LatencyContaminationGate:
     def _warnings(self, ctx: DecisionContext) -> List[str]:
         warnings: List[str] = []
         if ctx.historical_priors:
-            warnings.append("Historical prior favors HOLD")
+            warnings.append("Historical priors present and downweighted")
         if ctx.inherited_recommendations:
             warnings.append("Previous recommendations quarantined")
         return warnings
 
 
 def validate_agent_input(ctx: DecisionContext) -> None:
-    assert ctx.latency_contamination_checked
-    assert ctx.strategy_universe_locked
-    assert not ctx.previous_recommendations_as_evidence
+    if not ctx.latency_contamination_checked:
+        raise AssertionError("latency contamination gate was not executed")
+    if not ctx.strategy_universe_locked:
+        raise AssertionError("strategy universe is not locked")
+    if ctx.previous_recommendations_as_evidence:
+        raise AssertionError("previous recommendations cannot be used as evidence")
 
 
 @dataclass
@@ -175,8 +179,10 @@ class MultiAgentCoordinator:
         latency_report = self.gate.sanitize_context(ctx)
 
         outputs: Dict[str, str] = {}
+        validate_agent_input(ctx)
         for agent_name in agent_names:
-            validate_agent_input(ctx)
+            if agent_name not in llm_outputs:
+                raise ValueError(f"Missing llm output for agent: {agent_name}")
             outputs[agent_name] = llm_outputs[agent_name]
 
         post_gate_outputs = self.gate.classify_agent_outputs(outputs)

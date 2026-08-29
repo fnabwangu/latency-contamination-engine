@@ -54,7 +54,22 @@ class CoordinatorFlowTest(unittest.TestCase):
 
         self.assertTrue(result.latency_report["strategy_set_locked"])
         self.assertEqual(len(result.post_gate_outputs), 3)
-        self.assertEqual(len(result.disagreements), 3)
+        self.assertEqual(
+            sorted(result.disagreements),
+            ["hedge: HEDGE", "hold: Conviction", "trim: EDGE"],
+        )
+
+
+    def test_coordinator_rejects_missing_agent_output(self):
+        ctx = DecisionContext(observations={"price": "101"})
+        coordinator = MultiAgentCoordinator()
+
+        with self.assertRaisesRegex(ValueError, "Missing llm output for agent: HEDGE"):
+            coordinator.run(
+                ctx,
+                agent_names=["EDGE", "HEDGE"],
+                llm_outputs={"EDGE": "trim"},
+            )
 
     def test_validate_agent_input_rejects_unsanitized_context(self):
         ctx = DecisionContext(observations={"price": "101"})
