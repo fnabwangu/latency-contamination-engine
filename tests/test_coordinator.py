@@ -40,6 +40,13 @@ class LatencyContaminationGateTest(unittest.TestCase):
             self.assertEqual(item.authority, "NON_FACTUAL")
             self.assertIn(item.source, {"EDGE", "HEDGE"})
 
+    def test_sanitize_rejects_resanitizing_same_context(self):
+        gate = LatencyContaminationGate()
+        ctx = DecisionContext(observations={"price": "100"})
+        gate.sanitize_context(ctx)
+        with self.assertRaisesRegex(ValueError, "already sanitized"):
+            gate.sanitize_context(ctx)
+
 
 class CoordinatorFlowTest(unittest.TestCase):
     def test_coordinator_runs_with_shared_gate_and_flags_disagreement(self):

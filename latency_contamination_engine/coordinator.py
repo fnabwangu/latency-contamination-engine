@@ -45,7 +45,7 @@ class DecisionContext:
     historical_priors: Mapping[str, str] = field(default_factory=dict)
     user_behavior_rules: Mapping[str, str] = field(default_factory=dict)
     prior_agent_conclusions: Mapping[str, str] = field(default_factory=dict)
-    
+
     evidence: List[EvidenceItem] = field(default_factory=list)
     latency_contamination_checked: bool = False
     strategy_universe_locked: bool = False
@@ -61,6 +61,8 @@ class LatencyContaminationGate:
 
     def sanitize_context(self, ctx: DecisionContext) -> MutableMapping[str, object]:
         """Mutates ctx in place with sanitized evidence and lock state."""
+        if ctx.latency_contamination_checked:
+            raise ValueError("decision context was already sanitized")
         ctx.evidence.clear()
 
         self._add_evidence(ctx, ctx.observations, EpistemicType.MARKET_EVIDENCE)
@@ -179,8 +181,8 @@ class MultiAgentCoordinator:
         latency_report = self.gate.sanitize_context(ctx)
 
         outputs: Dict[str, str] = {}
-        validate_agent_input(ctx)
         for agent_name in agent_names:
+            validate_agent_input(ctx)
             if agent_name not in llm_outputs:
                 raise ValueError(f"Missing llm output for agent: {agent_name}")
             outputs[agent_name] = llm_outputs[agent_name]
