@@ -52,6 +52,11 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         reason: str = Field(min_length=1)
         expected_version: int | None = Field(default=None, ge=0)
 
+    class TransitionRequest(BaseModel):
+        state: CandidateState
+        reason: str = Field(min_length=1)
+        expected_version: int | None = Field(default=None, ge=0)
+
     class ProposalRequest(BaseModel):
         instrument: str = Field(min_length=1, max_length=32)
         side: str = Field(pattern="^(BUY|SELL)$")
@@ -364,6 +369,18 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         return _jsonable(candidate)
+
+    @app.post("/candidates/{candidate_id}/transition")
+    def transition(candidate_id: str, request: TransitionRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "transition", lambda: coordinator_service.coordinator.transition(candidate_id, request.state, request.reason, request.expected_version))
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return _jsonable(result)
 
     @app.post("/candidates/{candidate_id}/proposal", status_code=201)
     def proposal(candidate_id: str, request: ProposalRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:

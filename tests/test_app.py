@@ -10,7 +10,7 @@ def test_http_adapter_exposes_safe_surface():
     except RuntimeError:
         pytest.skip("fastapi is not installed")
     routes = {route.path for route in app.routes}
-    assert {"/health", "/candidates", "/meeting-surface", "/metrics", "/lcaes/detect", "/gates/evaluate", "/exposure/evaluate", "/trade-sets", "/candidates/{candidate_id}/sleeves/{sleeve_id}/algo", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/candidates/{candidate_id}/outcome", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
+    assert {"/health", "/candidates", "/meeting-surface", "/metrics", "/lcaes/detect", "/gates/evaluate", "/exposure/evaluate", "/trade-sets", "/candidates/{candidate_id}/sleeves/{sleeve_id}/algo", "/candidates/{candidate_id}/transition", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/candidates/{candidate_id}/outcome", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
     assert not any("broker" in path for path in routes)
 
 
@@ -108,3 +108,17 @@ def test_http_promotes_sleeve_to_independent_algo():
     assert promoted.status_code == 201
     assert promoted.json()["candidate_type"] == "ALGO_SINGLE"
     assert promoted.json()["probability"] is None
+
+
+def test_http_transition_enforces_lifecycle_and_version():
+    try:
+        client = TestClient(create_app())
+    except RuntimeError:
+        pytest.skip("fastapi is not installed")
+    payload = {"candidate_id": "transition-1", "candidate_type": "ALGO_SINGLE", "name": "Transition", "thesis": "thesis", "catalyst": "catalyst", "horizon": "day"}
+    assert client.post("/candidates", json=payload).status_code == 201
+    response = client.post("/candidates/transition-1/transition", json={"state": "RESEARCHING", "reason": "assign research", "expected_version": 0}, headers={"Idempotency-Key": "transition-1"})
+    assert response.status_code == 200
+    assert response.json()["version"] == 1
+    stale = client.post("/candidates/transition-1/transition", json={"state": "VIABLE", "reason": "stale", "expected_version": 0}, headers={"Idempotency-Key": "transition-2"})
+    assert stale.status_code == 409
