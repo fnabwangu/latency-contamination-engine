@@ -220,13 +220,16 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(coordinator_service.get_coverage_matrix().cells)
 
     @app.post("/coverage/{factor}")
-    def coverage_update(factor: str, request: CoverageRequest, x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+    def coverage_update(factor: str, request: CoverageRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
         require_tenant(x_tenant_id)
         try:
-            if request.packet_id is None:
-                result = coordinator_service.get_coverage_matrix().assign(factor, request.owner)
-            else:
-                result = coordinator_service.get_coverage_matrix().answer(factor, request.owner, request.packet_id)
+            def update_coverage():
+                if request.packet_id is None:
+                    return coordinator_service.get_coverage_matrix().assign(factor, request.owner)
+                return coordinator_service.get_coverage_matrix().answer(factor, request.owner, request.packet_id)
+
+            result = coordinator_service.idempotent(idempotency_key, "coverage", update_coverage)
         except (KeyError, ValueError) as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return _jsonable(result)

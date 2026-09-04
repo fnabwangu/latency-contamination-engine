@@ -42,7 +42,7 @@ def test_http_packet_coverage_and_independence_flow():
     response = client.post("/packets", json=packet)
     assert response.status_code == 201
     packet_id = response.json()["packet_id"]
-    assert client.post("/coverage/regime", json={"owner": "MACRO", "packet_id": packet_id}).status_code == 200
+    assert client.post("/coverage/regime", json={"owner": "MACRO", "packet_id": packet_id}, headers={"Idempotency-Key": "coverage-1"}).status_code == 200
     assert client.post("/independence", json={"agent_id": "MACRO", "provider": "local", "model_version": "1", "prompt_version": "1", "error_correlation": 0.1}).status_code == 201
 
 
