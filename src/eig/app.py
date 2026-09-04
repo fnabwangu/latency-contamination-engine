@@ -8,6 +8,7 @@ from typing import Any
 from pathlib import Path
 
 from .coordinator import Candidate, CandidateState, CandidateType, Coordinator
+from .evidence import EvidenceModality, EvidenceRecord
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
 
@@ -57,6 +58,20 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
     class ApprovalRequest(BaseModel):
         payload_hash: str = Field(min_length=64, max_length=64)
 
+    class EvidenceRequest(BaseModel):
+        source: str = Field(min_length=1, max_length=300)
+        captured_at: datetime
+        effective_at: datetime
+        modality: EvidenceModality
+        content: str = Field(min_length=1)
+        extractor_version: str = "native"
+        confidence: float = Field(ge=0, le=1)
+        claims: tuple[str, ...] = ()
+        entities: tuple[str, ...] = ()
+        candidate_ids: tuple[str, ...] = ()
+        contradictions: tuple[str, ...] = ()
+        expires_at: datetime | None = None
+
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
         coordinator_service = CoordinatorService(Coordinator(registry=SQLiteRegistry(configured_path)))
@@ -84,6 +99,21 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
     @app.get("/meeting-surface")
     def meeting_surface() -> list[dict[str, Any]]:
         return [_jsonable(candidate) for candidate in coordinator_service.get_meeting_surface()]
+
+    @app.post("/evidence", status_code=201)
+    def evidence(request: EvidenceRequest) -> dict[str, Any]:
+        try:
+            record = coordinator_service.register_evidence(EvidenceRecord(**request.model_dump()))
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _jsonable(record)
+
+    @app.get("/evidence/{evidence_id}")
+    def get_evidence(evidence_id: str) -> dict[str, Any]:
+        try:
+            return _jsonable(coordinator_service.get_evidence(evidence_id))
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail=f"evidence {evidence_id} not found") from error
 
     @app.post("/candidates", status_code=201)
     def register(request: CandidateRequest) -> dict[str, Any]:

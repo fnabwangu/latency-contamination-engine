@@ -10,7 +10,7 @@ def test_http_adapter_exposes_safe_surface():
     except RuntimeError:
         pytest.skip("fastapi is not installed")
     routes = {route.path for route in app.routes}
-    assert {"/health", "/candidates", "/meeting-surface", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
+    assert {"/health", "/candidates", "/meeting-surface", "/evidence", "/evidence/{evidence_id}", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
     assert not any("broker" in path for path in routes)
 
 
