@@ -33,6 +33,14 @@ from .isolation import IsolationBarrier
 from .packet import EvidencePacket, Quarantined
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
+from .execution import (
+    BrokerAdapter,
+    ExecutionError,
+    ExecutionMandate,
+    OrderReceipt,
+    OrderStatus,
+    RootExecutionEngine,
+)
 
 try:
     from .app import create_app
@@ -53,6 +61,7 @@ __all__ = [
     "AUTHORITY",
     "ApprovalError",
     "AgentPacket",
+    "BrokerAdapter",
     "Candidate",
     "CandidateState",
     "CandidateType",
@@ -73,6 +82,8 @@ __all__ = [
     "EpistemicType",
     "EvidencePacket",
     "ExecutionProposal",
+    "ExecutionError",
+    "ExecutionMandate",
     "Finding",
     "GateClass",
     "GateDefinition",
@@ -84,6 +95,8 @@ __all__ = [
     "IndependenceRecord",
     "LCAE",
     "LifecycleEvent",
+    "OrderReceipt",
+    "OrderStatus",
     "OBSERVED_TYPES",
     "Provenance",
     "Quarantined",
@@ -93,5 +106,6 @@ __all__ = [
     "SourceKind",
     "StalenessDetector",
     "StalenessPolicy",
+    "RootExecutionEngine",
     "Vote",
 ]
