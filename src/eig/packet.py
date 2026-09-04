@@ -31,7 +31,16 @@ class EvidencePacket:
 
     @property
     def digest(self) -> str:
-        payload = "\n".join(sorted(c.canonical() for c in self.accepted))
+        parts = [f"cycle={self.cycle}"]
+        parts.extend(f"accepted:{claim.canonical()}" for claim in self.accepted)
+        parts.extend(
+            f"quarantined:{item.claim.canonical()}:{','.join(sorted(f.code for f in item.findings))}"
+            for item in self.quarantined
+        )
+        parts.extend(f"flag:{finding.code}:{finding.claim_id}" for finding in self.flags)
+        parts.extend(f"demotion:{finding.code}:{finding.claim_id}" for finding in self.demotions)
+        parts.extend(f"contradiction:{item.left_id}:{item.right_id}" for item in self.contradictions)
+        payload = "\n".join(sorted(parts))
         return hashlib.sha256(payload.encode()).hexdigest()
 
     def by_type(self, etype: EpistemicType) -> tuple[Claim, ...]:

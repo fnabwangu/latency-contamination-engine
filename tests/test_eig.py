@@ -186,6 +186,16 @@ def test_packet_digest_is_stable_and_content_addressed():
     assert len(packet.digest) == 64
 
 
+def test_packet_digest_changes_when_adjudication_changes():
+    clean_gate = make_gate(require_seal=False)
+    clean_gate.observe("NBIS", "last 38.10", source="feed")
+    clean = clean_gate.build_packet()
+    flagged_gate = make_gate(require_seal=False)
+    flagged_gate.observe("NBIS", "last 38.10", source="feed", observed_at=utcnow() - timedelta(minutes=2), tags=("quote",))
+    flagged = flagged_gate.build_packet()
+    assert clean.digest != flagged.digest
+
+
 def test_assert_clean_raises_on_quarantine():
     from eig import ContaminatedPacket
 
