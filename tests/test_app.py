@@ -10,7 +10,7 @@ def test_http_adapter_exposes_safe_surface():
     except RuntimeError:
         pytest.skip("fastapi is not installed")
     routes = {route.path for route in app.routes}
-    assert {"/health", "/candidates", "/meeting-surface", "/metrics", "/lcaes/detect", "/gates/evaluate", "/exposure/evaluate", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/candidates/{candidate_id}/outcome", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
+    assert {"/health", "/candidates", "/meeting-surface", "/metrics", "/lcaes/detect", "/gates/evaluate", "/exposure/evaluate", "/trade-sets", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/candidates/{candidate_id}/outcome", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
     assert not any("broker" in path for path in routes)
 
 
@@ -83,3 +83,14 @@ def test_http_gate_evaluation_separates_warning_and_blocker():
     assert response.status_code == 200
     assert response.json()["blocked"] is True
     assert len(response.json()["warnings"]) == 1
+
+
+def test_http_creates_validated_trade_set():
+    try:
+        client = TestClient(create_app())
+    except RuntimeError:
+        pytest.skip("fastapi is not installed")
+    sleeve = {"sleeve_id": "s1", "instrument": "NBIS", "side": "BUY", "role": "equity", "thesis": "thesis", "catalyst": "catalyst", "entry": "breakout", "target": "45", "invalidation": "below 36", "expected_gain": "100", "expected_loss": "50"}
+    response = client.post("/trade-sets", headers={"Idempotency-Key": "set-1"}, json={"candidate_id": "set-http", "name": "Set", "thesis": "thesis", "catalyst": "catalyst", "horizon": "week", "sleeves": [sleeve]})
+    assert response.status_code == 201
+    assert response.json()["aggregate_risk"] == "50"

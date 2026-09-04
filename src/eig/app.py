@@ -7,12 +7,13 @@ import os
 from typing import Any
 from pathlib import Path
 
-from .coordinator import Candidate, CandidateState, CandidateType, Coordinator, GateDefinition, GateResult
+from .coordinator import Candidate, CandidateState, CandidateType, Coordinator, GateDefinition, GateResult, Sleeve
 from .coordination import AgentPacket, CoverageStatus, IndependenceRecord, Vote
 from .evidence import EvidenceModality, EvidenceRecord
 from .analytics import ShadowOutcome
 from .gates import GateGraph
 from .exposure import Exposure, summarize_exposure
+from .packages import build_trade_set, promote_sleeve_to_algo
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
 
@@ -137,6 +138,14 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         risk_name: str = Field(min_length=1, max_length=128)
         concentration_limit: Decimal = Field(gt=0, default=Decimal("25000"))
 
+    class TradeSetRequest(BaseModel):
+        candidate_id: str = Field(min_length=1, max_length=128)
+        name: str = Field(min_length=1, max_length=200)
+        thesis: str = Field(min_length=1)
+        catalyst: str = Field(min_length=1)
+        horizon: str = Field(min_length=1)
+        sleeves: tuple[dict[str, Any], ...]
+
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
         configured_tenant = tenant_id or os.environ.get("EIG_TENANT_ID", "default")
@@ -213,6 +222,30 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         if any(request.concentration_limit != limit for request in requests):
             raise HTTPException(status_code=422, detail="concentration limit must be consistent")
         return _jsonable(summarize_exposure((Exposure(**request.model_dump(exclude={"concentration_limit"})) for request in requests), limit))
+
+    @app.post("/trade-sets", status_code=201)
+    def trade_set(request: TradeSetRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+
+        def create():
+            sleeves = []
+            for values in request.sleeves:
+                normalized = dict(values)
+                normalized["expected_gain"] = Decimal(str(normalized["expected_gain"]))
+                normalized["expected_loss"] = Decimal(str(normalized["expected_loss"]))
+                if normalized.get("probability") is not None:
+                    normalized["probability"] = Decimal(str(normalized["probability"]))
+                sleeves.append(Sleeve(**normalized))
+            candidate = Candidate(request.candidate_id, CandidateType.BRANDED_TRADE_SET, request.name, request.thesis, request.catalyst, request.horizon, sleeves=tuple(sleeves), tenant_id=configured_tenant)
+            package = build_trade_set(candidate)
+            coordinator_service.coordinator.register_candidate(candidate)
+            return package
+
+        try:
+            return _jsonable(coordinator_service.idempotent(idempotency_key, "trade-set", create))
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
     @app.post("/evidence", status_code=201)
     def evidence(request: EvidenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
