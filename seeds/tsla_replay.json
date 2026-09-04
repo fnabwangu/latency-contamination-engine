@@ -1,0 +1,6 @@
+{
+  "replay": "TSLA Cybercab miss",
+  "expected_lcaes": ["coverage", "scope anchoring"],
+  "expected_disposition": "WATCHING",
+  "safe_output": "conditional Algo Single"
+}

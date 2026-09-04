@@ -216,6 +216,13 @@ soft throttle, a -$2,150 hard halt, and 2:1 minimum reward/risk. The objective
 never forces execution; the Root Execution Engine enforces the policy only
 after exact proposal approval.
 
+Product fixtures live under `seeds/`: Software Labor Compression,
+Semiconductor Tollbooth, and the TSLA Cybercab replay. The HTTP product flow is
+`POST /trade-sets` followed by
+`POST /candidates/{candidate_id}/sleeves/{sleeve_id}/algo`; the child candidate
+has independent identity and starts without inherited probability or approval.
+Runtime defaults are documented in `config/coordinator.yaml`.
+
 Set `EIG_TENANT_ID` to bind an HTTP app to a tenant. Requests may provide
 `X-Tenant-ID`; mismatched scopes receive `403`, and candidates created through
 the API are stamped with the bound tenant before persistence.

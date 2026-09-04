@@ -1,0 +1,12 @@
+database_path: "coordinator.sqlite"
+tenant_id: "default"
+limits:
+  meeting_surface_cards: 3
+  packet_max_age_seconds: 900
+  idempotency_retention_days: 30
+algo_risk:
+  max_aggregate_dollar_delta: "25000"
+  intraday_objective: "750"
+  soft_throttle: "-375"
+  hard_halt: "-2150"
+  minimum_reward_risk: "2"

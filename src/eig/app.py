@@ -237,7 +237,7 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
                 if normalized.get("probability") is not None:
                     normalized["probability"] = Decimal(str(normalized["probability"]))
                 sleeves.append(Sleeve(**normalized))
-            candidate = Candidate(request.candidate_id, CandidateType.BRANDED_TRADE_SET, request.name, request.thesis, request.catalyst, request.horizon, sleeves=tuple(sleeves), tenant_id=configured_tenant)
+            candidate = Candidate(request.candidate_id, CandidateType.BRANDED_TRADE_SET, request.name, request.thesis, request.catalyst, request.horizon, state=CandidateState.VIABLE, sleeves=tuple(sleeves), tenant_id=configured_tenant)
             package = build_trade_set(candidate)
             coordinator_service.coordinator.register_candidate(candidate)
             return package
@@ -246,6 +246,18 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
             return _jsonable(coordinator_service.idempotent(idempotency_key, "trade-set", create))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.post("/candidates/{candidate_id}/sleeves/{sleeve_id}/algo", status_code=201)
+    def promote_algo(candidate_id: str, sleeve_id: str, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "algo-promotion", lambda: coordinator_service.promote_sleeve_to_algo(candidate_id, sleeve_id))
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _jsonable(result)
 
     @app.post("/evidence", status_code=201)
     def evidence(request: EvidenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
