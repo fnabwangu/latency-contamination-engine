@@ -12,3 +12,12 @@ def test_service_rejects_replayed_persistent_mutation(tmp_path):
     with pytest.raises(ValueError, match="already processed"):
         second.idempotent("request-1", "candidate", lambda: (_ for _ in ()).throw(AssertionError("mutation replayed")))
     store.close()
+
+
+def test_failed_mutation_releases_persistent_key(tmp_path):
+    store = SQLiteRegistry(tmp_path / "coordinator.sqlite")
+    service = CoordinatorService(Coordinator("run-1", registry=store))
+    with pytest.raises(RuntimeError):
+        service.idempotent("request-2", "candidate", lambda: (_ for _ in ()).throw(RuntimeError("temporary")))
+    assert service.idempotent("request-2", "candidate", lambda: "retried") == "retried"
+    store.close()

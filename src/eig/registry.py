@@ -213,5 +213,9 @@ class SQLiteRegistry:
         self.connection.commit()
         return cursor.rowcount == 1
 
+    def release_idempotency(self, operation: str, key: str) -> None:
+        self.connection.execute("DELETE FROM idempotency_keys WHERE operation = ? AND key = ?", (operation, key))
+        self.connection.commit()
+
     def close(self) -> None:
         self.connection.close()
