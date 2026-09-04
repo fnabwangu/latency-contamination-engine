@@ -48,7 +48,7 @@ class SQLiteRegistry:
     """Transactional candidate/event store with idempotent candidate writes."""
 
     def __init__(self, path: str | Path = ":memory:") -> None:
-        self.connection = sqlite3.connect(str(path))
+        self.connection = sqlite3.connect(str(path), check_same_thread=False)
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.executescript(
             """

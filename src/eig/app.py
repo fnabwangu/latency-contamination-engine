@@ -3,10 +3,12 @@
 from dataclasses import asdict
 from datetime import datetime
 from decimal import Decimal
+import os
 from typing import Any
 from pathlib import Path
 
 from .coordinator import Candidate, CandidateState, CandidateType, Coordinator
+from .registry import SQLiteRegistry
 from .service import CoordinatorService
 
 
@@ -24,7 +26,7 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
-def create_app(service: CoordinatorService | None = None):
+def create_app(service: CoordinatorService | None = None, database_path: str | None = None):
     try:
         from fastapi import FastAPI, HTTPException
         from pydantic import BaseModel, Field
@@ -55,7 +57,11 @@ def create_app(service: CoordinatorService | None = None):
     class ApprovalRequest(BaseModel):
         payload_hash: str = Field(min_length=64, max_length=64)
 
-    coordinator_service = service or CoordinatorService(Coordinator())
+    if service is None:
+        configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
+        coordinator_service = CoordinatorService(Coordinator(registry=SQLiteRegistry(configured_path)))
+    else:
+        coordinator_service = service
     app = FastAPI(title="HedgeHog Trade Coordinator", version="0.1.0")
 
     ui_path = Path(__file__).resolve().parents[2] / "ui" / "index.html"
