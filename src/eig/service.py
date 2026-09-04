@@ -17,6 +17,7 @@ from .gates import GateGraph, StageDecision
 from .coordinator import GateDefinition, GateResult, LCAE
 from .packages import BrandedTradeSet, build_trade_set, promote_sleeve_to_algo, PackageError
 from .integration import CoordinatorHandoff, CoordinatorRouter
+from .run import CoordinationFrame, CoordinationRun, RunPhase, TaskAssignment
 from .conviction import Analog, BaseRate, ConvictionAssessment, ConvictionFeatures, Uncertainty, assess_conviction
 
 
@@ -28,6 +29,7 @@ class CoordinatorService:
         self.independence: dict[str, IndependenceRecord] = {}
         self.evidence = EvidenceStore()
         self.router = CoordinatorRouter()
+        self.runs: dict[str, CoordinationRun] = {}
         self._idempotency: dict[str, object] = {}
         if self.coordinator.registry is not None:
             for record in self.coordinator.registry.load_evidence():
@@ -55,6 +57,33 @@ class CoordinatorService:
 
     def start_coordination_run(self) -> str:
         return self.coordinator.run_id
+
+    def frame_coordination_run(self, frame: CoordinationFrame) -> CoordinationRun:
+        run = CoordinationRun(frame)
+        self.runs[run.run_id] = run
+        run.begin_elicitation()
+        return run
+
+    def assign_research_task(self, run_id: str, assignment: TaskAssignment) -> TaskAssignment:
+        return self.runs[run_id].assign(assignment)
+
+    def commit_run_packet(self, run_id: str, packet: AgentPacket) -> AgentPacket:
+        committed = self.runs[run_id].commit_packet(packet)
+        self.packets[packet.packet_id] = packet
+        return committed
+
+    def advance_run(self, run_id: str, phase: RunPhase) -> CoordinationRun:
+        run = self.runs[run_id]
+        actions = {RunPhase.POOL: run.pool, RunPhase.CHALLENGE: run.challenge, RunPhase.DECIDE: run.decide, RunPhase.COMPLETE: run.complete}
+        if phase not in actions:
+            raise ValueError("run can only advance to POOL, CHALLENGE, DECIDE, or COMPLETE")
+        actions[phase]()
+        return run
+
+    def set_run_disposition(self, run_id: str, candidate_id: str, disposition: str) -> CoordinationRun:
+        run = self.runs[run_id]
+        run.set_disposition(candidate_id, disposition)
+        return run
 
     def submit_agent_packet(self, packet: AgentPacket) -> AgentPacket:
         packet.validate()

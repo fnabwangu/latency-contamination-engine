@@ -239,6 +239,12 @@ The human-facing surface is composed from native web components in `ui/`:
 only requests and displays Coordinator state; it does not own approval,
 persistence, or execution.
 
+Coordinator runs follow an explicit `FRAME -> ELICIT -> POOL -> CHALLENGE ->
+DECIDE -> COMPLETE` lifecycle. Research tasks have owners and dependencies,
+packets are committed only by assigned agents, aggregate packets remain hidden
+until `DECIDE`, required dissent is assigned in the frame, and completion is
+rejected until every framed candidate has an explicit disposition.
+
 Set `EIG_TENANT_ID` to bind an HTTP app to a tenant. Requests may provide
 `X-Tenant-ID`; mismatched scopes receive `403`, and candidates created through
 the API are stamped with the bound tenant before persistence.

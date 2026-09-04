@@ -14,6 +14,7 @@ from .analytics import ShadowOutcome
 from .gates import GateGraph
 from .exposure import Exposure, summarize_exposure
 from .packages import build_trade_set, promote_sleeve_to_algo
+from .run import CoordinationFrame, RunPhase, TaskAssignment
 from .conviction import Analog, BaseRate, ConvictionFeatures, Uncertainty
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
@@ -26,6 +27,8 @@ def _jsonable(value: Any) -> Any:
         return value.value
     if isinstance(value, tuple):
         return [_jsonable(item) for item in value]
+    if isinstance(value, set):
+        return sorted(_jsonable(item) for item in value)
     if isinstance(value, dict):
         return {key: _jsonable(item) for key, item in value.items()}
     if hasattr(value, "__dataclass_fields__"):
@@ -156,6 +159,28 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         proposal_id: str = Field(min_length=1, max_length=128)
         payload_hash: str = Field(min_length=64, max_length=64)
 
+    class RunFrameRequest(BaseModel):
+        candidate_ids: tuple[str, ...] = Field(min_length=1)
+        forecast: str = Field(min_length=1)
+        horizon: str = Field(min_length=1)
+        catalyst_clock: str = Field(min_length=1)
+        required_roles: tuple[str, ...] = ()
+        required_dissent_role: str = "BITO"
+
+    class TaskAssignmentRequest(BaseModel):
+        task_id: str = Field(min_length=1, max_length=128)
+        role: str = Field(min_length=1, max_length=128)
+        owner: str = Field(min_length=1, max_length=128)
+        depends_on: tuple[str, ...] = ()
+        required: bool = True
+
+    class RunAdvanceRequest(BaseModel):
+        phase: RunPhase
+
+    class RunDispositionRequest(BaseModel):
+        candidate_id: str = Field(min_length=1, max_length=128)
+        disposition: str = Field(min_length=1, max_length=32)
+
     class ConvictionRequest(BaseModel):
         strategy_family: str = Field(min_length=1, max_length=128)
         successes: int = Field(ge=0)
@@ -217,6 +242,55 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
     def health(x_tenant_id: str | None = Header(default=None)) -> dict[str, str]:
         require_tenant(x_tenant_id)
         return {"status": "ok", "run_id": coordinator_service.start_coordination_run()}
+
+    @app.post("/runs", status_code=201)
+    def run_create(request: RunFrameRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        frame = CoordinationFrame(**request.model_dump())
+        result = coordinator_service.idempotent(idempotency_key, "run", lambda: coordinator_service.frame_coordination_run(frame))
+        return _jsonable(result)
+
+    @app.post("/runs/{run_id}/tasks", status_code=201)
+    def run_task(run_id: str, request: TaskAssignmentRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "run-task", lambda: coordinator_service.assign_research_task(run_id, TaskAssignment(**request.model_dump())))
+        except (KeyError, ValueError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.post("/runs/{run_id}/advance")
+    def run_advance(run_id: str, request: RunAdvanceRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "run-advance", lambda: coordinator_service.advance_run(run_id, request.phase))
+        except (KeyError, ValueError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.post("/runs/{run_id}/dispositions")
+    def run_disposition(run_id: str, request: RunDispositionRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "run-disposition", lambda: coordinator_service.set_run_disposition(run_id, request.candidate_id, request.disposition))
+        except (KeyError, ValueError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.post("/runs/{run_id}/packets", status_code=201)
+    def run_packet(run_id: str, request: PacketRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            packet_value = AgentPacket(**request.model_dump())
+            result = coordinator_service.idempotent(idempotency_key, "run-packet", lambda: coordinator_service.commit_run_packet(run_id, packet_value))
+        except (KeyError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _jsonable(result)
 
     @app.get("/candidates")
     def candidates(x_tenant_id: str | None = Header(default=None)) -> list[dict[str, Any]]:

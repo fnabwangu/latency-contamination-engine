@@ -16,6 +16,7 @@ def test_http_adapter_exposes_coordinator_surface():
         "/conviction/assess",
         "/trade-sets", "/handoffs/trade-tf", "/handoffs/algo-tf", "/handoffs/execution", "/candidates/{candidate_id}/sleeves/{sleeve_id}/algo",
         "/candidates/{candidate_id}/transition", "/evidence",
+        "/runs", "/runs/{run_id}/tasks", "/runs/{run_id}/packets", "/runs/{run_id}/advance", "/runs/{run_id}/dispositions",
         "/evidence/{evidence_id}", "/packets", "/coverage",
         "/coverage/{factor}", "/independence",
         "/candidates/{candidate_id}/outcome", "/ui",
@@ -150,3 +151,25 @@ def test_http_transition_enforces_lifecycle_and_version():
     assert response.json()["version"] == 1
     stale = client.post("/candidates/transition-1/transition", json={"state": "VIABLE", "reason": "stale", "expected_version": 0}, headers={"Idempotency-Key": "transition-2"})
     assert stale.status_code == 409
+
+
+def test_http_run_lifecycle_requires_owned_packets_and_dispositions():
+    try:
+        client = TestClient(create_app())
+    except RuntimeError:
+        pytest.skip("fastapi is not installed")
+    frame = {"candidate_ids": ["c1"], "forecast": "target before stop", "horizon": "week", "catalyst_clock": "earnings", "required_roles": ["MACRO", "BITO"], "required_dissent_role": "BITO"}
+    created = client.post("/runs", json=frame, headers={"Idempotency-Key": "run-1"})
+    assert created.status_code == 201
+    run_id = created.json()["run_id"]
+    assert client.post(f"/runs/{run_id}/tasks", json={"task_id": "macro", "role": "macro", "owner": "MACRO"}, headers={"Idempotency-Key": "task-1"}).status_code == 201
+    assert client.post(f"/runs/{run_id}/tasks", json={"task_id": "dissent", "role": "BITO", "owner": "BITO", "depends_on": ["macro"]}, headers={"Idempotency-Key": "task-2"}).status_code == 201
+    now = "2026-09-04T00:00:00+00:00"
+    for agent, key in (("MACRO", "packet-1"), ("BITO", "packet-2")):
+        packet = {"run_id": run_id, "agent_id": agent, "role": agent, "candidate_ids": ["c1"], "as_of": now, "valid_until": "2026-09-04T00:05:00+00:00", "confidence": 0.6, "vote": "SUPPORT"}
+        assert client.post(f"/runs/{run_id}/packets", json=packet, headers={"Idempotency-Key": key}).status_code == 201
+    assert client.post(f"/runs/{run_id}/advance", json={"phase": "POOL"}, headers={"Idempotency-Key": "advance-1"}).status_code == 200
+    assert client.post(f"/runs/{run_id}/advance", json={"phase": "CHALLENGE"}, headers={"Idempotency-Key": "advance-2"}).status_code == 200
+    assert client.post(f"/runs/{run_id}/advance", json={"phase": "DECIDE"}, headers={"Idempotency-Key": "advance-3"}).status_code == 200
+    assert client.post(f"/runs/{run_id}/dispositions", json={"candidate_id": "c1", "disposition": "USE"}, headers={"Idempotency-Key": "disposition-1"}).status_code == 200
+    assert client.post(f"/runs/{run_id}/advance", json={"phase": "COMPLETE"}, headers={"Idempotency-Key": "advance-4"}).status_code == 200

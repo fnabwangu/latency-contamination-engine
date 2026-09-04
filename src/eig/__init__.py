@@ -58,6 +58,7 @@ from .reliability import SourceReliability
 from .reconcile import Reconciliation, ReconciliationStatus, reconcile
 from .conviction import Analog, BaseRate, ConvictionAssessment, ConvictionFeatures, ConvictionStatus, Fragility, Uncertainty, assess_conviction, bayesian_probability, regularized_logistic, survival_probability
 from .integration import CoordinatorHandoff, CoordinatorRouter, ExternalCoordinator, HandoffStatus, HandoffTarget
+from .run import CoordinationFrame, CoordinationRun, RunError, RunPhase, TaskAssignment
 
 try:
     from .app import create_app
@@ -99,6 +100,8 @@ __all__ = [
     "Coordinator",
     "CoordinatorHandoff",
     "CoordinatorRouter",
+    "CoordinationFrame",
+    "CoordinationRun",
     "CoordinatorService",
     "CoordinatorMetrics",
     "create_app",
@@ -137,6 +140,8 @@ __all__ = [
     "LCAE",
     "HandoffStatus",
     "HandoffTarget",
+    "RunError",
+    "RunPhase",
     "detect_packet_errors",
     "LifecycleEvent",
     "LineageCluster",
@@ -157,6 +162,7 @@ __all__ = [
     "SourceKind",
     "StalenessDetector",
     "StalenessPolicy",
+    "TaskAssignment",
     "RootExecutionEngine",
     "ResearchDecision",
     "Reconciliation",
