@@ -59,6 +59,7 @@ class SQLiteRegistry:
                 candidate_id TEXT PRIMARY KEY,
                 candidate_type TEXT NOT NULL,
                 tenant_id TEXT NOT NULL DEFAULT 'default',
+                version INTEGER NOT NULL DEFAULT 0,
                 payload TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -99,9 +100,9 @@ class SQLiteRegistry:
     def save_candidate(self, candidate: Candidate) -> None:
         payload = json.dumps(_encode(asdict(candidate)), sort_keys=True)
         self.connection.execute(
-            "INSERT INTO candidates(candidate_id, candidate_type, tenant_id, payload, updated_at) VALUES (?, ?, ?, ?, datetime('now')) "
-            "ON CONFLICT(candidate_id) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at",
-            (candidate.candidate_id, candidate.candidate_type.value, candidate.tenant_id, payload),
+            "INSERT INTO candidates(candidate_id, candidate_type, tenant_id, version, payload, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now')) "
+            "ON CONFLICT(candidate_id) DO UPDATE SET tenant_id=excluded.tenant_id, version=excluded.version, payload=excluded.payload, updated_at=excluded.updated_at",
+            (candidate.candidate_id, candidate.candidate_type.value, candidate.tenant_id, candidate.version, payload),
         )
         self.connection.commit()
 

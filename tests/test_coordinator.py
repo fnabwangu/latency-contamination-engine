@@ -64,6 +64,8 @@ def test_lifecycle_is_legal_and_audit_is_append_only():
     assert [event.to_state for event in coordinator.events] == [CandidateState.DISCOVERED, CandidateState.RESEARCHING, CandidateState.VIABLE]
     with pytest.raises(ValueError):
         coordinator.transition("trade-1", CandidateState.ACTIVE, "skip authorization")
+    with pytest.raises(ValueError, match="version conflict"):
+        coordinator.transition("trade-1", CandidateState.BACK_BURNER, "stale client", expected_version=0)
 
 
 def test_score_and_decimal_size_are_explicit():

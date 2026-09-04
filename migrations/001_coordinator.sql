@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS candidates (
     candidate_id TEXT PRIMARY KEY,
     candidate_type TEXT NOT NULL CHECK (candidate_type IN ('BRANDED_TRADE_SET', 'ALGO_SINGLE')),
     tenant_id TEXT NOT NULL DEFAULT 'default',
+    version INTEGER NOT NULL DEFAULT 0,
     payload TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

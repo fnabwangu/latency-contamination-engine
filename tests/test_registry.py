@@ -41,6 +41,7 @@ def test_coordinator_writes_and_recovers_its_lifecycle(tmp_path):
     recovered_store = SQLiteRegistry(tmp_path / "coordinator.sqlite")
     recovered = Coordinator("run-1", registry=recovered_store)
     assert recovered.get_candidate("c1").state is CandidateState.RESEARCHING
+    assert recovered.get_candidate("c1").version == 1
     assert len(recovered.events) == 2
     recovered_store.close()
 

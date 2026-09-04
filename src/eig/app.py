@@ -47,6 +47,7 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
     class DispositionRequest(BaseModel):
         disposition: CandidateState
         reason: str = Field(min_length=1)
+        expected_version: int | None = Field(default=None, ge=0)
 
     class ProposalRequest(BaseModel):
         instrument: str = Field(min_length=1, max_length=32)
@@ -233,8 +234,14 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
     @app.post("/candidates/{candidate_id}/disposition")
     def disposition(candidate_id: str, request: DispositionRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+
+        def apply_disposition():
+            if request.disposition not in {CandidateState.BACK_BURNER, CandidateState.DISCARDED, CandidateState.ARCHIVED}:
+                raise ValueError("disposition must be BACK_BURNER, DISCARDED, or ARCHIVED")
+            return coordinator_service.coordinator.transition(candidate_id, request.disposition, request.reason, request.expected_version)
+
         try:
-            candidate = coordinator_service.idempotent(idempotency_key, "disposition", lambda: coordinator_service.coordinator.set_disposition(candidate_id, request.disposition, request.reason))
+            candidate = coordinator_service.idempotent(idempotency_key, "disposition", apply_disposition)
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
         except ValueError as error:

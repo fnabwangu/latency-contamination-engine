@@ -12,6 +12,8 @@
     "catalyst": {"type": "string", "minLength": 1},
     "horizon": {"type": "string", "minLength": 1},
     "state": {"type": "string"},
+    "tenant_id": {"type": "string", "minLength": 1},
+    "version": {"type": "integer", "minimum": 0},
     "evidence_ids": {"type": "array", "items": {"type": "string"}},
     "dissent": {"type": "string"}
   },

@@ -143,6 +143,7 @@ class Candidate:
     conviction: Decimal | None = None
     created_at: datetime = field(default_factory=utcnow)
     tenant_id: str = "default"
+    version: int = 0
 
 
 @dataclass(frozen=True)
@@ -277,11 +278,13 @@ class Coordinator:
             "lcaes": tuple(lcae for lcae in self.lcaes if lcae.candidate_id == candidate_id),
         }
 
-    def transition(self, candidate_id: str, state: CandidateState, reason: str) -> Candidate:
+    def transition(self, candidate_id: str, state: CandidateState, reason: str, expected_version: int | None = None) -> Candidate:
         current = self.candidates[candidate_id]
+        if expected_version is not None and expected_version != current.version:
+            raise ValueError(f"candidate version conflict: expected {expected_version}, current {current.version}")
         if state is not current.state and state not in _TRANSITIONS.get(current.state, frozenset()):
             raise ValueError(f"illegal candidate transition {current.state} -> {state}")
-        updated = replace(current, state=state)
+        updated = replace(current, state=state, version=current.version + 1)
         self.candidates[candidate_id] = updated
         self._persist_candidate(updated)
         event = LifecycleEvent(candidate_id, current.state, state, reason)
