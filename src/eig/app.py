@@ -8,6 +8,7 @@ from typing import Any
 from pathlib import Path
 
 from .coordinator import Candidate, CandidateState, CandidateType, Coordinator
+from .coordination import AgentPacket, CoverageStatus, IndependenceRecord, Vote
 from .evidence import EvidenceModality, EvidenceRecord
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
@@ -72,6 +73,48 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         contradictions: tuple[str, ...] = ()
         expires_at: datetime | None = None
 
+    class PacketRequest(BaseModel):
+        run_id: str
+        agent_id: str = Field(min_length=1, max_length=128)
+        role: str = Field(min_length=1, max_length=128)
+        candidate_ids: tuple[str, ...] = ()
+        as_of: datetime
+        valid_until: datetime
+        claims: tuple[str, ...] = ()
+        evidence_ids: tuple[str, ...] = ()
+        unique_evidence: tuple[str, ...] = ()
+        shared_evidence: tuple[str, ...] = ()
+        known_unknowns: tuple[str, ...] = ()
+        requests: tuple[str, ...] = ()
+        dependencies: tuple[str, ...] = ()
+        contradictions: tuple[str, ...] = ()
+        directional_effect: str = "NEUTRAL"
+        magnitude: str = "UNKNOWN"
+        confidence: float = Field(ge=0, le=1)
+        vote: Vote = Vote.INSUFFICIENT_DATA
+        hard_veto: bool = False
+        veto_invalidator: str | None = None
+        next_action: str = ""
+        model_lineage: str = ""
+        prompt_version: str = "1"
+        source_lineage: tuple[str, ...] = ()
+
+    class CoverageRequest(BaseModel):
+        owner: str = Field(min_length=1, max_length=128)
+        packet_id: str | None = None
+
+    class IndependenceRequest(BaseModel):
+        agent_id: str = Field(min_length=1, max_length=128)
+        provider: str = Field(min_length=1, max_length=128)
+        model_version: str = Field(min_length=1, max_length=128)
+        prompt_version: str = Field(min_length=1, max_length=128)
+        tool_lineage: tuple[str, ...] = ()
+        shared_upstream: tuple[str, ...] = ()
+        feature_lineage: tuple[str, ...] = ()
+        error_correlation: float = Field(ge=0, le=1)
+        calibration: str = "UNKNOWN"
+        config_version: str = "1"
+
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
         coordinator_service = CoordinatorService(Coordinator(registry=SQLiteRegistry(configured_path)))
@@ -114,6 +157,37 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
             return _jsonable(coordinator_service.get_evidence(evidence_id))
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"evidence {evidence_id} not found") from error
+
+    @app.post("/packets", status_code=201)
+    def packet(request: PacketRequest) -> dict[str, Any]:
+        try:
+            result = coordinator_service.submit_agent_packet(AgentPacket(**request.model_dump()))
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.get("/coverage")
+    def coverage() -> dict[str, Any]:
+        return _jsonable(coordinator_service.get_coverage_matrix().cells)
+
+    @app.post("/coverage/{factor}")
+    def coverage_update(factor: str, request: CoverageRequest) -> dict[str, Any]:
+        try:
+            if request.packet_id is None:
+                result = coordinator_service.get_coverage_matrix().assign(factor, request.owner)
+            else:
+                result = coordinator_service.get_coverage_matrix().answer(factor, request.owner, request.packet_id)
+        except (KeyError, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.get("/independence")
+    def independence() -> list[dict[str, Any]]:
+        return [_jsonable(record) for record in coordinator_service.get_agent_independence()]
+
+    @app.post("/independence", status_code=201)
+    def independence_register(request: IndependenceRequest) -> dict[str, Any]:
+        return _jsonable(coordinator_service.register_independence(IndependenceRecord(**request.model_dump())))
 
     @app.post("/candidates", status_code=201)
     def register(request: CandidateRequest) -> dict[str, Any]:

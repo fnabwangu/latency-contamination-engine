@@ -200,6 +200,12 @@ it with `uvicorn eig.app:create_app --factory`. The API includes health,
 candidate, meeting-surface, audit, disposition, proposal, and exact-hash
 approval operations. It deliberately has no broker endpoint.
 
+Coordination protocol endpoints are also available for typed agent packets,
+coverage ownership/answers, and independence registers: `POST /packets`,
+`GET/POST /coverage`, and `GET/POST /independence`. Packet validity, run
+identity, confidence bounds, and hard-veto requirements are validated before
+state is mutated.
+
 Additional Coordinator modules are available for `EvidenceRecord` and
 content-addressed `EvidenceStore`, `DecisionCoverageMatrix`, typed
 `AgentPacket`, `OpportunityClock` and information-value routing, gate
