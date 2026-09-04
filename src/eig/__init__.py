@@ -45,6 +45,7 @@ from .evidence import EvidenceModality, EvidenceRecord, EvidenceStore
 from .analytics import GateAnalytics, ShadowOutcome, summarize_gates
 from .latency import InformationValue, OpportunityClock, ResearchDecision, choose_research_action
 from .packages import BrandedTradeSet, PackageError, build_trade_set, promote_sleeve_to_algo
+from .forecast import CalibrationMetrics, Forecast, ForecastStatus, calibration_metrics
 
 try:
     from .app import create_app
@@ -70,6 +71,7 @@ __all__ = [
     "Candidate",
     "CandidateState",
     "CandidateType",
+    "CalibrationMetrics",
     "Claim",
     "ContaminatedPacket",
     "ContaminationDetector",
@@ -92,6 +94,8 @@ __all__ = [
     "EvidenceModality",
     "EvidenceRecord",
     "EvidenceStore",
+    "Forecast",
+    "ForecastStatus",
     "Finding",
     "GateClass",
     "GateAnalytics",
@@ -124,6 +128,7 @@ __all__ = [
     "Vote",
     "build_trade_set",
     "choose_research_action",
+    "calibration_metrics",
     "summarize_gates",
     "promote_sleeve_to_algo",
 ]
