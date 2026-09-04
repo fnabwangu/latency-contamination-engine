@@ -165,6 +165,11 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         require_tenant(x_tenant_id)
         return [_jsonable(candidate) for candidate in coordinator_service.get_meeting_surface()]
 
+    @app.get("/metrics")
+    def metrics(x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_tenant(x_tenant_id)
+        return coordinator_service.metrics().as_dict()
+
     @app.post("/evidence", status_code=201)
     def evidence(request: EvidenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)

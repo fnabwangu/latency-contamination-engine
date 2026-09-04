@@ -206,6 +206,10 @@ coverage ownership/answers, and independence registers: `POST /packets`,
 identity, confidence bounds, and hard-veto requirements are validated before
 state is mutated.
 
+`GET /metrics` provides a tenant-scoped, privacy-preserving snapshot of
+candidate states, packets, evidence, gates, LCAEs, proposals, outcomes, and
+meeting-surface count. It does not return account identifiers or credentials.
+
 Set `EIG_TENANT_ID` to bind an HTTP app to a tenant. Requests may provide
 `X-Tenant-ID`; mismatched scopes receive `403`, and candidates created through
 the API are stamped with the bound tenant before persistence.

@@ -8,6 +8,7 @@ from .coordination import AgentPacket, DecisionCoverageMatrix, IndependenceRecor
 from .coordinator import Candidate, Coordinator
 from .evidence import EvidenceRecord, EvidenceStore
 from .analytics import ShadowOutcome
+from .metrics import CoordinatorMetrics, snapshot
 
 
 class CoordinatorService:
@@ -73,6 +74,9 @@ class CoordinatorService:
 
     def record_outcome(self, outcome: ShadowOutcome) -> ShadowOutcome:
         return self.coordinator.record_outcome(outcome)
+
+    def metrics(self) -> CoordinatorMetrics:
+        return snapshot(self.coordinator, packets=len(self.packets), evidence=len(self.evidence.records))
 
     def register_independence(self, record: IndependenceRecord) -> IndependenceRecord:
         self.independence[record.agent_id] = record

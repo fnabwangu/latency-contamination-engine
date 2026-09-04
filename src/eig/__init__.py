@@ -46,6 +46,7 @@ from .analytics import GateAnalytics, ShadowOutcome, summarize_gates
 from .latency import InformationValue, OpportunityClock, ResearchDecision, choose_research_action
 from .packages import BrandedTradeSet, PackageError, build_trade_set, promote_sleeve_to_algo
 from .forecast import CalibrationMetrics, Forecast, ForecastStatus, calibration_metrics
+from .metrics import CoordinatorMetrics, snapshot
 
 try:
     from .app import create_app
@@ -79,6 +80,7 @@ __all__ = [
     "ConvictionResult",
     "Coordinator",
     "CoordinatorService",
+    "CoordinatorMetrics",
     "create_app",
     "CoverageCell",
     "CoverageStatus",
@@ -130,5 +132,6 @@ __all__ = [
     "choose_research_action",
     "calibration_metrics",
     "summarize_gates",
+    "snapshot",
     "promote_sleeve_to_algo",
 ]
