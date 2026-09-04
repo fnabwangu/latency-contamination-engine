@@ -54,6 +54,7 @@ from .gates import GateGraph, StageDecision
 from .exposure import Exposure, ExposureReport, hedge_reduces_named_risk, summarize_exposure
 from .provenance import Contradiction, ProvenanceGraph
 from .lineage import LineageCluster, cluster_claims, effective_independent_evidence
+from .reliability import SourceReliability
 
 try:
     from .app import create_app
@@ -145,6 +146,7 @@ __all__ = [
     "RootExecutionEngine",
     "ResearchDecision",
     "ResearchTask",
+    "SourceReliability",
     "Vote",
     "build_trade_set",
     "choose_research_action",
