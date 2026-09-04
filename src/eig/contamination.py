@@ -35,13 +35,15 @@ class ContaminationDetector:
         self.policy = policy or ContaminationPolicy()
 
     def evaluate(
-        self, claim: Claim, ledger: Mapping[str, Claim], cycle: int
+        self, claim: Claim, ledger: Mapping[str, Claim], cycle: int,
+        graph_ledger: Mapping[str, Claim] | None = None,
     ) -> list[Finding]:
         findings: list[Finding] = []
         findings += self._check_source_authority(claim)
         findings += self._check_upstream_authority(claim, ledger)
         findings += self._check_cross_cycle(claim, ledger, cycle)
         findings += self._check_provenance(claim, ledger)
+        findings += self._check_provenance_cycle(claim, graph_ledger or ledger)
         return findings
 
     # -- rules ---------------------------------------------------------------
@@ -135,4 +137,23 @@ class ContaminationDetector:
                 severity=Severity.QUARANTINE,
                 claim_id=claim.id,
                 message=f"upstream claims not in ledger: {', '.join(sorted(missing))}",
+            )
+
+    def _check_provenance_cycle(
+        self, claim: Claim, ledger: Mapping[str, Claim]
+    ) -> Iterable[Finding]:
+        def visits(current: str, path: frozenset[str]) -> bool:
+            if current in path:
+                return True
+            parent = ledger.get(current)
+            if parent is None:
+                return False
+            return any(visits(upstream, path | {current}) for upstream in parent.provenance.upstream)
+
+        if any(visits(upstream, frozenset({claim.id})) for upstream in claim.provenance.upstream):
+            yield Finding(
+                code="PROVENANCE_CYCLE",
+                severity=Severity.QUARANTINE,
+                claim_id=claim.id,
+                message="claim provenance contains a cycle",
             )

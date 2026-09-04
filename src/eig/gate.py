@@ -155,7 +155,7 @@ class EpistemicIntegrityGate:
                 )
                 continue
 
-            findings = self.contamination.evaluate(claim, resolved, self.cycle)
+            findings = self.contamination.evaluate(claim, resolved, self.cycle, self._ledger)
             findings += self.staleness.evaluate(claim, now)
 
             if any(f.severity is Severity.QUARANTINE for f in findings):

@@ -210,3 +210,14 @@ def test_demotion_cannot_raise_authority():
     )
     with pytest.raises(ValueError):
         claim.demoted_to(EpistemicType.FACT)
+
+
+def test_cyclic_provenance_is_quarantined_by_the_gate():
+    gate = make_gate(require_seal=False)
+    first = Claim("X", "first", EpistemicType.HYPOTHESIS, Provenance("derived", SourceKind.DERIVED, upstream=("second",)), id="first")
+    second = Claim("X", "second", EpistemicType.HYPOTHESIS, Provenance("derived", SourceKind.DERIVED, upstream=("first",)), id="second")
+    gate.submit(first)
+    gate.submit(second)
+    packet = gate.build_packet()
+    findings = [finding.code for item in packet.quarantined for finding in item.findings]
+    assert "PROVENANCE_CYCLE" in findings
