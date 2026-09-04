@@ -14,6 +14,7 @@ from .analytics import ShadowOutcome
 from .gates import GateGraph
 from .exposure import Exposure, summarize_exposure
 from .packages import build_trade_set, promote_sleeve_to_algo
+from .trade_tf import FloatPosition, StrategyRiskBounds, StrategyState
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
 
@@ -150,6 +151,29 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         catalyst: str = Field(min_length=1)
         horizon: str = Field(min_length=1)
         sleeves: tuple[dict[str, Any], ...]
+
+    class StrategyMandateRequest(BaseModel):
+        candidate_id: str = Field(min_length=1, max_length=128)
+        thesis: str = Field(min_length=1)
+        instruments: tuple[str, ...] = Field(min_length=1)
+        sides: tuple[str, ...] = Field(min_length=1)
+        horizon: str = Field(min_length=1)
+        max_loss: Decimal = Field(gt=0)
+        max_gross_exposure: Decimal = Field(gt=0)
+        max_position_count: int = Field(gt=0)
+
+    class StrategyApprovalRequest(BaseModel):
+        payload_hash: str = Field(min_length=64, max_length=64)
+
+    class StrategyTransitionRequest(BaseModel):
+        state: StrategyState
+        expected_version: int | None = Field(default=None, ge=0)
+
+    class StrategyPositionRequest(BaseModel):
+        instrument: str = Field(min_length=1, max_length=32)
+        side: str = Field(pattern="^(BUY|SELL)$")
+        exposure: Decimal
+        worst_case_loss: Decimal = Field(ge=0)
 
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
@@ -378,6 +402,53 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
             result = coordinator_service.idempotent(idempotency_key, "transition", lambda: coordinator_service.coordinator.transition(candidate_id, request.state, request.reason, request.expected_version))
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.post("/strategy-mandates", status_code=201)
+    def strategy_mandate(request: StrategyMandateRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            bounds = StrategyRiskBounds(request.max_loss, request.max_gross_exposure, request.max_position_count)
+            result = coordinator_service.idempotent(idempotency_key, "strategy-mandate", lambda: coordinator_service.create_strategy_mandate(request.candidate_id, request.thesis, request.instruments, request.sides, request.horizon, bounds))
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.post("/strategy-mandates/{mandate_id}/approve")
+    def strategy_approve(mandate_id: str, request: StrategyApprovalRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "strategy-approval", lambda: coordinator_service.approve_strategy_mandate(mandate_id, request.payload_hash))
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="strategy mandate not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.post("/strategy-mandates/{mandate_id}/transition")
+    def strategy_transition(mandate_id: str, request: StrategyTransitionRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "strategy-transition", lambda: coordinator_service.transition_strategy(mandate_id, request.state, request.expected_version))
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="strategy mandate not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        return _jsonable(result)
+
+    @app.post("/strategy-mandates/{mandate_id}/positions")
+    def strategy_position(mandate_id: str, request: StrategyPositionRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "strategy-position", lambda: coordinator_service.add_strategy_position(mandate_id, FloatPosition(**request.model_dump())))
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="strategy mandate not found") from error
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         return _jsonable(result)

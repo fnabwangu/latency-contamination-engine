@@ -15,6 +15,7 @@ from .latency import InformationValue, OpportunityClock, ResearchDecision, choos
 from .gates import GateGraph, StageDecision
 from .coordinator import GateDefinition, GateResult, LCAE
 from .packages import BrandedTradeSet, build_trade_set, promote_sleeve_to_algo, PackageError
+from .trade_tf import FloatPosition, StrategyMandate, StrategyRiskBounds, StrategyState, TradeTF
 
 
 class CoordinatorService:
@@ -24,6 +25,7 @@ class CoordinatorService:
         self.coverage = DecisionCoverageMatrix()
         self.independence: dict[str, IndependenceRecord] = {}
         self.evidence = EvidenceStore()
+        self.trade_tf = TradeTF()
         self._idempotency: dict[str, object] = {}
         if self.coordinator.registry is not None:
             for record in self.coordinator.registry.load_evidence():
@@ -140,3 +142,15 @@ class CoordinatorService:
 
     def refresh_candidate(self, candidate_id: str) -> Candidate:
         return self.coordinator.get_candidate(candidate_id)
+
+    def create_strategy_mandate(self, candidate_id: str, thesis: str, instruments: tuple[str, ...], sides: tuple[str, ...], horizon: str, bounds: StrategyRiskBounds) -> StrategyMandate:
+        return self.trade_tf.create_mandate(candidate_id, thesis, instruments, sides, horizon, bounds)
+
+    def approve_strategy_mandate(self, mandate_id: str, payload_hash: str) -> StrategyMandate:
+        return self.trade_tf.approve(mandate_id, payload_hash)
+
+    def transition_strategy(self, mandate_id: str, state: StrategyState, expected_version: int | None = None) -> StrategyMandate:
+        return self.trade_tf.transition(mandate_id, state, expected_version)
+
+    def add_strategy_position(self, mandate_id: str, position: FloatPosition):
+        return self.trade_tf.add_position(mandate_id, position)
