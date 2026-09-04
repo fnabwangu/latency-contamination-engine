@@ -13,6 +13,7 @@ def test_http_adapter_exposes_coordinator_surface():
     expected = {
         "/health", "/candidates", "/meeting-surface", "/queue", "/metrics",
         "/lcaes/detect", "/gates/evaluate", "/exposure/evaluate",
+        "/conviction/assess",
         "/trade-sets", "/handoffs/trade-tf", "/handoffs/algo-tf", "/handoffs/execution", "/candidates/{candidate_id}/sleeves/{sleeve_id}/algo",
         "/candidates/{candidate_id}/transition", "/evidence",
         "/evidence/{evidence_id}", "/packets", "/coverage",
@@ -98,6 +99,18 @@ def test_http_gate_evaluation_separates_warning_and_blocker():
     assert response.status_code == 200
     assert response.json()["blocked"] is True
     assert len(response.json()["warnings"]) == 1
+
+
+def test_http_conviction_assessment_returns_range_ev_and_fragility():
+    try:
+        client = TestClient(create_app())
+    except RuntimeError:
+        pytest.skip("fastapi is not installed")
+    response = client.post("/conviction/assess", json={"strategy_family": "momentum", "successes": 10, "failures": 5, "expected_gain": "100", "expected_loss": "60", "costs": "5", "features": {"trend": "0.5", "mfe": "0.4", "mae": "0.2"}})
+    assert response.status_code == 200
+    assert response.json()["probability_range"]
+    assert "expected_value" in response.json()
+    assert response.json()["uncertainty"]["model"] == "0.2"
 
 
 def test_http_creates_validated_trade_set():

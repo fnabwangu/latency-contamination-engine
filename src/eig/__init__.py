@@ -56,6 +56,7 @@ from .provenance import Contradiction, ProvenanceGraph
 from .lineage import LineageCluster, cluster_claims, effective_independent_evidence, weighted_independent_evidence
 from .reliability import SourceReliability
 from .reconcile import Reconciliation, ReconciliationStatus, reconcile
+from .conviction import Analog, BaseRate, ConvictionAssessment, ConvictionFeatures, ConvictionStatus, Fragility, Uncertainty, assess_conviction, bayesian_probability, regularized_logistic, survival_probability
 from .integration import CoordinatorHandoff, CoordinatorRouter, ExternalCoordinator, HandoffStatus, HandoffTarget
 
 try:
@@ -77,8 +78,10 @@ __all__ = [
     "AUTHORITY",
     "ApprovalError",
     "AgentPacket",
+    "Analog",
     "AlgoRiskPolicy",
     "BrokerAdapter",
+    "BaseRate",
     "BrandedTradeSet",
     "Candidate",
     "CandidateState",
@@ -90,6 +93,9 @@ __all__ = [
     "ContaminationPolicy",
     "Contradiction",
     "ConvictionResult",
+    "ConvictionAssessment",
+    "ConvictionFeatures",
+    "ConvictionStatus",
     "Coordinator",
     "CoordinatorHandoff",
     "CoordinatorRouter",
@@ -114,6 +120,7 @@ __all__ = [
     "ExposureReport",
     "Forecast",
     "ForecastStatus",
+    "Fragility",
     "Finding",
     "ExternalCoordinator",
     "GateClass",
@@ -157,6 +164,11 @@ __all__ = [
     "ResearchTask",
     "SourceReliability",
     "Vote",
+    "Uncertainty",
+    "assess_conviction",
+    "bayesian_probability",
+    "regularized_logistic",
+    "survival_probability",
     "build_trade_set",
     "choose_research_action",
     "calibration_metrics",

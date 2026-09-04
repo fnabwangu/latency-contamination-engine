@@ -14,6 +14,7 @@ from .analytics import ShadowOutcome
 from .gates import GateGraph
 from .exposure import Exposure, summarize_exposure
 from .packages import build_trade_set, promote_sleeve_to_algo
+from .conviction import Analog, BaseRate, ConvictionFeatures, Uncertainty
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
 
@@ -155,6 +156,19 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         proposal_id: str = Field(min_length=1, max_length=128)
         payload_hash: str = Field(min_length=64, max_length=64)
 
+    class ConvictionRequest(BaseModel):
+        strategy_family: str = Field(min_length=1, max_length=128)
+        successes: int = Field(ge=0)
+        failures: int = Field(ge=0)
+        expected_gain: Decimal = Field(ge=0)
+        expected_loss: Decimal = Field(ge=0)
+        costs: Decimal = Field(ge=0, default=Decimal("0"))
+        analogs: tuple[dict[str, Any], ...] = ()
+        features: dict[str, Decimal] = Field(default_factory=dict)
+        model_uncertainty: Decimal = Field(ge=0, le=1, default=Decimal("0.2"))
+        path_uncertainty: Decimal = Field(ge=0, le=1, default=Decimal("0.2"))
+        data_uncertainty: Decimal = Field(ge=0, le=1, default=Decimal("0.2"))
+
 
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
@@ -253,6 +267,15 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         if any(request.concentration_limit != limit for request in requests):
             raise HTTPException(status_code=422, detail="concentration limit must be consistent")
         return _jsonable(summarize_exposure((Exposure(**request.model_dump(exclude={"concentration_limit"})) for request in requests), limit))
+
+    @app.post("/conviction/assess")
+    def conviction_assess(request: ConvictionRequest, x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_tenant(x_tenant_id)
+        base_rate = BaseRate(request.strategy_family, request.successes, request.failures)
+        analogs = tuple(Analog(bool(analog["outcome"]), Decimal(str(analog["similarity"])), Decimal(str(analog["time_to_event"]))) for analog in request.analogs)
+        features = ConvictionFeatures(**{name: Decimal(str(value)) for name, value in request.features.items()})
+        uncertainty = Uncertainty(request.model_uncertainty, request.path_uncertainty, request.data_uncertainty)
+        return _jsonable(coordinator_service.assess_conviction(base_rate, analogs, features, request.expected_gain, request.expected_loss, request.costs, uncertainty))
 
     @app.post("/trade-sets", status_code=201)
     def trade_set(request: TradeSetRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:

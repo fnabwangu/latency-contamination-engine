@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Mapping
 
 from .coordination import AgentPacket, DecisionCoverageMatrix, IndependenceRecord
@@ -16,6 +17,7 @@ from .gates import GateGraph, StageDecision
 from .coordinator import GateDefinition, GateResult, LCAE
 from .packages import BrandedTradeSet, build_trade_set, promote_sleeve_to_algo, PackageError
 from .integration import CoordinatorHandoff, CoordinatorRouter
+from .conviction import Analog, BaseRate, ConvictionAssessment, ConvictionFeatures, Uncertainty, assess_conviction
 
 
 class CoordinatorService:
@@ -144,6 +146,9 @@ class CoordinatorService:
 
     def score_candidate(self, probability, expected_gain, expected_loss, costs=0):
         return self.coordinator.score(probability, expected_gain, expected_loss, costs)
+
+    def assess_conviction(self, base_rate: BaseRate | None, analogs: tuple[Analog, ...], features: ConvictionFeatures, expected_gain, expected_loss, costs=0, uncertainty: Uncertainty = Uncertainty(Decimal("0.2"), Decimal("0.2"), Decimal("0.2"))) -> ConvictionAssessment:
+        return assess_conviction(base_rate, analogs, features, expected_gain, expected_loss, costs, uncertainty)
 
     def build_trade_set(self, candidate_id: str) -> BrandedTradeSet:
         return build_trade_set(self.coordinator.get_candidate(candidate_id))
