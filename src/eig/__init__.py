@@ -52,6 +52,7 @@ from .orchestrator import OrchestrationResult, ResearchTask, run_research
 from .lcae import detect_packet_errors
 from .gates import GateGraph, StageDecision
 from .exposure import Exposure, ExposureReport, hedge_reduces_named_risk, summarize_exposure
+from .provenance import Contradiction, ProvenanceGraph
 
 try:
     from .app import create_app
@@ -83,6 +84,7 @@ __all__ = [
     "ContaminatedPacket",
     "ContaminationDetector",
     "ContaminationPolicy",
+    "Contradiction",
     "ConvictionResult",
     "Coordinator",
     "CoordinatorService",
@@ -128,6 +130,7 @@ __all__ = [
     "OrchestrationResult",
     "OBSERVED_TYPES",
     "Provenance",
+    "ProvenanceGraph",
     "Quarantined",
     "Severity",
     "Sleeve",
