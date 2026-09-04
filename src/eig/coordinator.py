@@ -142,6 +142,7 @@ class Candidate:
     expected_value: Decimal | None = None
     conviction: Decimal | None = None
     created_at: datetime = field(default_factory=utcnow)
+    tenant_id: str = "default"
 
 
 @dataclass(frozen=True)
@@ -204,9 +205,12 @@ _TRANSITIONS: Mapping[CandidateState, frozenset[CandidateState]] = {
 class Coordinator:
     """In-process registry with append-only events and no broker capability."""
 
-    def __init__(self, run_id: str | None = None, registry: Any | None = None) -> None:
+    def __init__(self, run_id: str | None = None, registry: Any | None = None, tenant_id: str = "default") -> None:
         self.run_id = run_id or uuid.uuid4().hex
         self.registry = registry
+        if not tenant_id or len(tenant_id) > 128:
+            raise ValueError("tenant_id must be non-empty and at most 128 characters")
+        self.tenant_id = tenant_id
         self.candidates: dict[str, Candidate] = {}
         self.events: list[LifecycleEvent] = []
         self.gate_evaluations: list[GateEvaluation] = []
@@ -216,7 +220,7 @@ class Coordinator:
         self.kill_switch_locked = False
         self.account_available = True
         if registry is not None:
-            self.candidates = {candidate.candidate_id: candidate for candidate in registry.load_candidates()}
+            self.candidates = {candidate.candidate_id: candidate for candidate in registry.load_candidates() if candidate.tenant_id == tenant_id}
             self.events = [event for candidate in self.candidates.values() for event in registry.load_events(candidate.candidate_id)]
             self.proposals = {proposal.proposal_id: proposal for proposal in registry.load_proposals()}
             self.outcomes = {outcome.candidate_id: outcome for outcome in registry.load_outcomes()}
@@ -230,6 +234,8 @@ class Coordinator:
             self.registry.append_event(event)
 
     def register_candidate(self, candidate: Candidate) -> Candidate:
+        if candidate.tenant_id != self.tenant_id:
+            raise ValueError("candidate belongs to a different tenant")
         if candidate.candidate_id in self.candidates:
             raise ValueError(f"duplicate candidate {candidate.candidate_id}")
         self.candidates[candidate.candidate_id] = candidate

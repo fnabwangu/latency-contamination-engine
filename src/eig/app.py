@@ -29,7 +29,7 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
-def create_app(service: CoordinatorService | None = None, database_path: str | None = None):
+def create_app(service: CoordinatorService | None = None, database_path: str | None = None, tenant_id: str | None = None):
     try:
         from fastapi import FastAPI, Header, HTTPException
         from pydantic import BaseModel, Field
@@ -124,7 +124,8 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
 
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
-        coordinator_service = CoordinatorService(Coordinator(registry=SQLiteRegistry(configured_path)))
+        configured_tenant = tenant_id or os.environ.get("EIG_TENANT_ID", "default")
+        coordinator_service = CoordinatorService(Coordinator(registry=SQLiteRegistry(configured_path), tenant_id=configured_tenant))
     else:
         coordinator_service = service
     app = FastAPI(title="HedgeHog Trade Coordinator", version="0.1.0")

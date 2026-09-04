@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS candidates (
     candidate_id TEXT PRIMARY KEY,
     candidate_type TEXT NOT NULL CHECK (candidate_type IN ('BRANDED_TRADE_SET', 'ALGO_SINGLE')),
+    tenant_id TEXT NOT NULL DEFAULT 'default',
     payload TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -26,5 +27,6 @@ CREATE TABLE IF NOT EXISTS shadow_outcomes (
 
 CREATE INDEX IF NOT EXISTS lifecycle_events_candidate_idx
     ON lifecycle_events(candidate_id);
+CREATE INDEX IF NOT EXISTS candidates_tenant_idx ON candidates(tenant_id);
 CREATE INDEX IF NOT EXISTS proposals_candidate_idx
     ON proposals(candidate_id);

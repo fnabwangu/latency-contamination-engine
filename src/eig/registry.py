@@ -56,6 +56,7 @@ class SQLiteRegistry:
             CREATE TABLE IF NOT EXISTS candidates (
                 candidate_id TEXT PRIMARY KEY,
                 candidate_type TEXT NOT NULL,
+                tenant_id TEXT NOT NULL DEFAULT 'default',
                 payload TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -83,9 +84,9 @@ class SQLiteRegistry:
     def save_candidate(self, candidate: Candidate) -> None:
         payload = json.dumps(_encode(asdict(candidate)), sort_keys=True)
         self.connection.execute(
-            "INSERT INTO candidates(candidate_id, candidate_type, payload, updated_at) VALUES (?, ?, ?, datetime('now')) "
+            "INSERT INTO candidates(candidate_id, candidate_type, tenant_id, payload, updated_at) VALUES (?, ?, ?, ?, datetime('now')) "
             "ON CONFLICT(candidate_id) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at",
-            (candidate.candidate_id, candidate.candidate_type.value, payload),
+            (candidate.candidate_id, candidate.candidate_type.value, candidate.tenant_id, payload),
         )
         self.connection.commit()
 
@@ -94,6 +95,7 @@ class SQLiteRegistry:
         if row is None:
             raise KeyError(candidate_id)
         values = _decode(json.loads(row[0]))
+        values.setdefault("tenant_id", "default")
         values["candidate_type"] = CandidateType(values["candidate_type"])
         values["state"] = CandidateState(values["state"])
         values["sleeves"] = tuple(Sleeve(**sleeve) for sleeve in values["sleeves"])
