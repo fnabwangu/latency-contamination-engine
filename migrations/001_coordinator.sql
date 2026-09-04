@@ -25,8 +25,25 @@ CREATE TABLE IF NOT EXISTS shadow_outcomes (
     payload TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS evidence (
+    evidence_id TEXT PRIMARY KEY,
+    payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_packets (
+    packet_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS independence (
+    agent_id TEXT PRIMARY KEY,
+    payload TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS lifecycle_events_candidate_idx
     ON lifecycle_events(candidate_id);
 CREATE INDEX IF NOT EXISTS candidates_tenant_idx ON candidates(tenant_id);
 CREATE INDEX IF NOT EXISTS proposals_candidate_idx
     ON proposals(candidate_id);
+CREATE INDEX IF NOT EXISTS agent_packets_run_idx ON agent_packets(run_id);

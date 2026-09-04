@@ -214,7 +214,8 @@ selection-bias-aware gate analysis.
 The initial SQL baseline is in `migrations/001_coordinator.sql`. Versioned
 JSON Schemas for candidates, evidence, agent packets, and execution proposals
 are in `schemas/`. SQLite currently initializes the same tables automatically
-for the embedded service.
+for the embedded service, including durable evidence, packet, independence,
+proposal, lifecycle, and shadow-outcome records.
 
 Additional Coordinator modules are available for `EvidenceRecord` and
 content-addressed `EvidenceStore`, `DecisionCoverageMatrix`, typed

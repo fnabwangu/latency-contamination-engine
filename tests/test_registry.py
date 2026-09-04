@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from datetime import timedelta
 
-from eig import Candidate, CandidateState, CandidateType, Coordinator, LifecycleEvent, SQLiteRegistry, Sleeve
+from eig import AgentPacket, Candidate, CandidateState, CandidateType, Coordinator, CoordinatorService, EvidenceModality, EvidenceRecord, LifecycleEvent, SQLiteRegistry, Sleeve
 from eig.types import utcnow
 
 
@@ -54,4 +54,18 @@ def test_proposal_hash_survives_restart(tmp_path):
     recovered_store = SQLiteRegistry(tmp_path / "coordinator.sqlite")
     recovered = Coordinator("run-1", registry=recovered_store)
     assert recovered.proposals[proposal.proposal_id].payload_hash == proposal.payload_hash
+    recovered_store.close()
+
+
+def test_coordination_records_survive_restart(tmp_path):
+    store = SQLiteRegistry(tmp_path / "coordinator.sqlite")
+    first = CoordinatorService(Coordinator("run-1", registry=store))
+    now = utcnow()
+    evidence = first.register_evidence(EvidenceRecord("feed", now, now, EvidenceModality.TEXT, "claim"))
+    packet = first.submit_agent_packet(AgentPacket("run-1", "MACRO", "macro", (), now, now + timedelta(minutes=1)))
+    store.close()
+    recovered_store = SQLiteRegistry(tmp_path / "coordinator.sqlite")
+    recovered = CoordinatorService(Coordinator("run-1", registry=recovered_store))
+    assert recovered.get_evidence(evidence.evidence_id) == evidence
+    assert recovered.packets[packet.packet_id] == packet
     recovered_store.close()

@@ -17,6 +17,8 @@ from typing import Any
 
 from .coordinator import Candidate, CandidateState, CandidateType, ExecutionProposal, LifecycleEvent, Sleeve
 from .analytics import ShadowOutcome
+from .coordination import AgentPacket, IndependenceRecord, Vote
+from .evidence import EvidenceModality, EvidenceRecord
 
 
 def _encode(value: Any) -> Any:
@@ -76,6 +78,19 @@ class SQLiteRegistry:
                 candidate_id TEXT PRIMARY KEY,
                 payload TEXT NOT NULL,
                 FOREIGN KEY(candidate_id) REFERENCES candidates(candidate_id)
+            );
+            CREATE TABLE IF NOT EXISTS evidence (
+                evidence_id TEXT PRIMARY KEY,
+                payload TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS agent_packets (
+                packet_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                payload TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS independence (
+                agent_id TEXT PRIMARY KEY,
+                payload TEXT NOT NULL
             );
             """
         )
@@ -151,6 +166,37 @@ class SQLiteRegistry:
     def load_outcomes(self) -> tuple[ShadowOutcome, ...]:
         rows = self.connection.execute("SELECT payload FROM shadow_outcomes ORDER BY candidate_id").fetchall()
         return tuple(ShadowOutcome(**_decode(json.loads(row[0]))) for row in rows)
+
+    def save_evidence(self, record: EvidenceRecord) -> None:
+        self.connection.execute("INSERT OR IGNORE INTO evidence(evidence_id, payload) VALUES (?, ?)", (record.evidence_id, json.dumps(_encode(asdict(record)), sort_keys=True)))
+        self.connection.commit()
+
+    def load_evidence(self) -> tuple[EvidenceRecord, ...]:
+        rows = self.connection.execute("SELECT payload FROM evidence ORDER BY rowid").fetchall()
+        values = [_decode(json.loads(row[0])) for row in rows]
+        return tuple(EvidenceRecord(**{**value, "modality": EvidenceModality(value["modality"])}) for value in values)
+
+    def save_packet(self, packet: AgentPacket) -> None:
+        self.connection.execute("INSERT OR IGNORE INTO agent_packets(packet_id, run_id, payload) VALUES (?, ?, ?)", (packet.packet_id, packet.run_id, json.dumps(_encode(asdict(packet)), sort_keys=True)))
+        self.connection.commit()
+
+    def load_packets(self, run_id: str | None = None) -> tuple[AgentPacket, ...]:
+        query = "SELECT payload FROM agent_packets" + (" WHERE run_id = ?" if run_id else "")
+        rows = self.connection.execute(query, (run_id,) if run_id else ()).fetchall()
+        packets = []
+        for row in rows:
+            value = _decode(json.loads(row[0]))
+            value["vote"] = Vote(value["vote"])
+            packets.append(AgentPacket(**value))
+        return tuple(packets)
+
+    def save_independence(self, record: IndependenceRecord) -> None:
+        self.connection.execute("INSERT INTO independence(agent_id, payload) VALUES (?, ?) ON CONFLICT(agent_id) DO UPDATE SET payload=excluded.payload", (record.agent_id, json.dumps(_encode(asdict(record)), sort_keys=True)))
+        self.connection.commit()
+
+    def load_independence(self) -> tuple[IndependenceRecord, ...]:
+        rows = self.connection.execute("SELECT payload FROM independence ORDER BY agent_id").fetchall()
+        return tuple(IndependenceRecord(**_decode(json.loads(row[0]))) for row in rows)
 
     def close(self) -> None:
         self.connection.close()
