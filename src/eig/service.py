@@ -15,7 +15,7 @@ from .latency import InformationValue, OpportunityClock, ResearchDecision, choos
 from .gates import GateGraph, StageDecision
 from .coordinator import GateDefinition, GateResult, LCAE
 from .packages import BrandedTradeSet, build_trade_set, promote_sleeve_to_algo, PackageError
-from .trade_tf import FloatPosition, StrategyMandate, StrategyRiskBounds, StrategyState, TradeTF
+from .integration import CoordinatorHandoff, CoordinatorRouter
 
 
 class CoordinatorService:
@@ -25,7 +25,7 @@ class CoordinatorService:
         self.coverage = DecisionCoverageMatrix()
         self.independence: dict[str, IndependenceRecord] = {}
         self.evidence = EvidenceStore()
-        self.trade_tf = TradeTF()
+        self.router = CoordinatorRouter()
         self._idempotency: dict[str, object] = {}
         if self.coordinator.registry is not None:
             for record in self.coordinator.registry.load_evidence():
@@ -106,6 +106,22 @@ class CoordinatorService:
     def get_meeting_surface(self) -> tuple[Candidate, ...]:
         return self.coordinator.meeting_surface()
 
+    def get_queue(self) -> tuple[Candidate, ...]:
+        return self.coordinator.queue()
+
+    def create_trade_tf_handoff(self, candidate_id: str) -> CoordinatorHandoff:
+        return self.router.to_trade_tf(self.coordinator.get_candidate(candidate_id))
+
+    def create_algo_tf_handoff(self, candidate_id: str, sleeve_id: str) -> CoordinatorHandoff:
+        candidate = self.coordinator.get_candidate(candidate_id)
+        sleeve = next((sleeve for sleeve in candidate.sleeves if sleeve.sleeve_id == sleeve_id), None)
+        if sleeve is None:
+            raise PackageError(f"sleeve {sleeve_id} not found")
+        return self.router.to_algo_tf(candidate, sleeve)
+
+    def create_execution_handoff(self, candidate_id: str, proposal_id: str, payload_hash: str) -> CoordinatorHandoff:
+        return self.router.to_execution_engine(candidate_id, proposal_id, payload_hash)
+
     def get_audit_view(self, candidate_id: str):
         return self.coordinator.audit_view(candidate_id)
 
@@ -143,14 +159,6 @@ class CoordinatorService:
     def refresh_candidate(self, candidate_id: str) -> Candidate:
         return self.coordinator.get_candidate(candidate_id)
 
-    def create_strategy_mandate(self, candidate_id: str, thesis: str, instruments: tuple[str, ...], sides: tuple[str, ...], horizon: str, bounds: StrategyRiskBounds) -> StrategyMandate:
-        return self.trade_tf.create_mandate(candidate_id, thesis, instruments, sides, horizon, bounds)
+    def coordinator_name(self) -> str:
+        return "Coordinator"
 
-    def approve_strategy_mandate(self, mandate_id: str, payload_hash: str) -> StrategyMandate:
-        return self.trade_tf.approve(mandate_id, payload_hash)
-
-    def transition_strategy(self, mandate_id: str, state: StrategyState, expected_version: int | None = None) -> StrategyMandate:
-        return self.trade_tf.transition(mandate_id, state, expected_version)
-
-    def add_strategy_position(self, mandate_id: str, position: FloatPosition):
-        return self.trade_tf.add_position(mandate_id, position)

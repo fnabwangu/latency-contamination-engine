@@ -265,6 +265,11 @@ class Coordinator:
             candidates = (candidate for candidate in candidates if candidate.candidate_type is candidate_type)
         return tuple(sorted(candidates, key=lambda candidate: candidate.created_at))
 
+    def queue(self) -> tuple[Candidate, ...]:
+        """Return ideas still visible to the Coordinator decision queue."""
+        terminal = {CandidateState.ARCHIVED, CandidateState.DISCARDED, CandidateState.COMPLETED}
+        return tuple(candidate for candidate in self.list_candidates() if candidate.state not in terminal)
+
     def set_disposition(self, candidate_id: str, disposition: CandidateState, reason: str) -> Candidate:
         if disposition not in {CandidateState.BACK_BURNER, CandidateState.DISCARDED, CandidateState.ARCHIVED}:
             raise ValueError("disposition must be BACK_BURNER, DISCARDED, or ARCHIVED")

@@ -210,7 +210,8 @@ state is mutated.
 candidate states, packets, evidence, gates, LCAEs, proposals, outcomes, and
 meeting-surface count. It does not return account identifiers or credentials.
 
-`AlgoRiskPolicy` provides configurable Algo-TF controls with defaults of
+`AlgoRiskPolicy` provides configurable execution-risk controls for an external
+Algo-TF integration, with defaults of
 $25,000 maximum aggregate dollar delta, a $750 intraday objective, a -$375
 soft throttle, a -$2,150 hard halt, and 2:1 minimum reward/risk. The objective
 never forces execution; the Root Execution Engine enforces the policy only
@@ -222,6 +223,14 @@ Semiconductor Tollbooth, and the TSLA Cybercab replay. The HTTP product flow is
 `POST /candidates/{candidate_id}/sleeves/{sleeve_id}/algo`; the child candidate
 has independent identity and starts without inherited probability or approval.
 Runtime defaults are documented in `config/coordinator.yaml`.
+
+Trade-TF and Algo-TF are standalone external agents. This package does not
+implement their mandate or lifecycle state machines. The Coordinator only
+creates typed handoffs to them; `/queue` and `/meeting-surface` remain the
+Coordinator's decision surfaces, and `/handoffs/trade-tf`, `/handoffs/algo-tf`,
+and `/handoffs/execution` carry integration contracts. The external systems
+must return typed results to the Coordinator and use the Root Execution Engine
+for any broker-bound action.
 
 Set `EIG_TENANT_ID` to bind an HTTP app to a tenant. Requests may provide
 `X-Tenant-ID`; mismatched scopes receive `403`, and candidates created through

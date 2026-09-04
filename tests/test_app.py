@@ -4,13 +4,23 @@ from fastapi.testclient import TestClient
 from eig import CoordinatorService, create_app
 
 
-def test_http_adapter_exposes_safe_surface():
+def test_http_adapter_exposes_coordinator_surface():
     try:
         app = create_app(CoordinatorService())
     except RuntimeError:
         pytest.skip("fastapi is not installed")
     routes = {route.path for route in app.routes}
-    assert {"/health", "/candidates", "/meeting-surface", "/metrics", "/lcaes/detect", "/gates/evaluate", "/exposure/evaluate", "/trade-sets", "/candidates/{candidate_id}/sleeves/{sleeve_id}/algo", "/candidates/{candidate_id}/transition", "/strategy-mandates", "/strategy-mandates/{mandate_id}/approve", "/strategy-mandates/{mandate_id}/transition", "/strategy-mandates/{mandate_id}/positions", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/candidates/{candidate_id}/outcome", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
+    expected = {
+        "/health", "/candidates", "/meeting-surface", "/queue", "/metrics",
+        "/lcaes/detect", "/gates/evaluate", "/exposure/evaluate",
+        "/trade-sets", "/handoffs/trade-tf", "/handoffs/algo-tf", "/handoffs/execution", "/candidates/{candidate_id}/sleeves/{sleeve_id}/algo",
+        "/candidates/{candidate_id}/transition", "/evidence",
+        "/evidence/{evidence_id}", "/packets", "/coverage",
+        "/coverage/{factor}", "/independence",
+        "/candidates/{candidate_id}/outcome", "/ui",
+        "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve",
+    }
+    assert expected <= routes
     assert not any("broker" in path for path in routes)
 
 
@@ -20,12 +30,9 @@ def test_http_candidates_recover_from_configured_sqlite(tmp_path):
     except RuntimeError:
         pytest.skip("fastapi is not installed")
     payload = {
-        "candidate_id": "http-1",
-        "candidate_type": "ALGO_SINGLE",
-        "name": "HTTP candidate",
-        "thesis": "test thesis",
-        "catalyst": "test catalyst",
-        "horizon": "one day",
+        "candidate_id": "http-1", "candidate_type": "ALGO_SINGLE",
+        "name": "HTTP candidate", "thesis": "test thesis",
+        "catalyst": "test catalyst", "horizon": "one day",
     }
     assert first.post("/candidates", json=payload).status_code == 201
     second = TestClient(create_app(database_path=str(tmp_path / "coordinator.sqlite")))
@@ -38,7 +45,12 @@ def test_http_packet_coverage_and_independence_flow():
     except RuntimeError:
         pytest.skip("fastapi is not installed")
     now = "2026-09-04T00:00:00+00:00"
-    packet = {"run_id": client.get("/health").json()["run_id"], "agent_id": "MACRO", "role": "macro", "as_of": now, "valid_until": "2026-09-04T00:05:00+00:00", "confidence": 0.8, "vote": "SUPPORT"}
+    packet = {
+        "run_id": client.get("/health").json()["run_id"], "agent_id": "MACRO",
+        "role": "macro", "as_of": now,
+        "valid_until": "2026-09-04T00:05:00+00:00", "confidence": 0.8,
+        "vote": "SUPPORT",
+    }
     response = client.post("/packets", json=packet)
     assert response.status_code == 201
     packet_id = response.json()["packet_id"]
@@ -122,23 +134,3 @@ def test_http_transition_enforces_lifecycle_and_version():
     assert response.json()["version"] == 1
     stale = client.post("/candidates/transition-1/transition", json={"state": "VIABLE", "reason": "stale", "expected_version": 0}, headers={"Idempotency-Key": "transition-2"})
     assert stale.status_code == 409
-
-
-def test_http_trade_tf_mandate_approval_and_risk_flow():
-    try:
-        client = TestClient(create_app())
-    except RuntimeError:
-        pytest.skip("fastapi is not installed")
-    candidate = {"candidate_id": "strategy-c1", "candidate_type": "ALGO_SINGLE", "name": "Strategy", "thesis": "thesis", "catalyst": "catalyst", "horizon": "day"}
-    assert client.post("/candidates", json=candidate).status_code == 201
-    request = {"candidate_id": "strategy-c1", "thesis": "thesis", "instruments": ["NBIS"], "sides": ["BUY"], "horizon": "day", "max_loss": "100", "max_gross_exposure": "1000", "max_position_count": 1}
-    created = client.post("/strategy-mandates", json=request, headers={"Idempotency-Key": "strategy-1"})
-    assert created.status_code == 201
-    mandate = created.json()
-    mandate_id = mandate["mandate_id"]
-    assert client.post(f"/strategy-mandates/{mandate_id}/transition", json={"state": "PROPOSED"}, headers={"Idempotency-Key": "strategy-transition-1"}).status_code == 200
-    approved = client.post(f"/strategy-mandates/{mandate_id}/approve", json={"payload_hash": mandate["payload_hash"]}, headers={"Idempotency-Key": "strategy-approve-1"})
-    assert approved.status_code == 200
-    assert client.post(f"/strategy-mandates/{mandate_id}/transition", json={"state": "ENTERING"}, headers={"Idempotency-Key": "strategy-transition-2"}).status_code == 200
-    assert client.post(f"/strategy-mandates/{mandate_id}/positions", json={"instrument": "NBIS", "side": "BUY", "exposure": "500", "worst_case_loss": "50"}, headers={"Idempotency-Key": "strategy-position-1"}).status_code == 200
-    assert client.post(f"/strategy-mandates/{mandate_id}/positions", json={"instrument": "NBIS", "side": "BUY", "exposure": "500", "worst_case_loss": "60"}, headers={"Idempotency-Key": "strategy-position-2"}).status_code == 409

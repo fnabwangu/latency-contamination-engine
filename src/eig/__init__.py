@@ -56,7 +56,7 @@ from .provenance import Contradiction, ProvenanceGraph
 from .lineage import LineageCluster, cluster_claims, effective_independent_evidence, weighted_independent_evidence
 from .reliability import SourceReliability
 from .reconcile import Reconciliation, ReconciliationStatus, reconcile
-from .trade_tf import FloatPosition, StrategyError, StrategyFloat, StrategyMandate, StrategyRiskBounds, StrategyState, TradeTF
+from .integration import CoordinatorHandoff, CoordinatorRouter, ExternalCoordinator, HandoffStatus, HandoffTarget
 
 try:
     from .app import create_app
@@ -91,6 +91,8 @@ __all__ = [
     "Contradiction",
     "ConvictionResult",
     "Coordinator",
+    "CoordinatorHandoff",
+    "CoordinatorRouter",
     "CoordinatorService",
     "CoordinatorMetrics",
     "create_app",
@@ -113,6 +115,7 @@ __all__ = [
     "Forecast",
     "ForecastStatus",
     "Finding",
+    "ExternalCoordinator",
     "GateClass",
     "GateAnalytics",
     "GateDefinition",
@@ -125,6 +128,8 @@ __all__ = [
     "IndependenceRecord",
     "InformationValue",
     "LCAE",
+    "HandoffStatus",
+    "HandoffTarget",
     "detect_packet_errors",
     "LifecycleEvent",
     "LineageCluster",
@@ -151,13 +156,6 @@ __all__ = [
     "ReconciliationStatus",
     "ResearchTask",
     "SourceReliability",
-    "FloatPosition",
-    "StrategyError",
-    "StrategyFloat",
-    "StrategyMandate",
-    "StrategyRiskBounds",
-    "StrategyState",
-    "TradeTF",
     "Vote",
     "build_trade_set",
     "choose_research_action",
