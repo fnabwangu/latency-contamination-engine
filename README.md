@@ -166,3 +166,36 @@ pytest
 - [src/eig/staleness.py](src/eig/staleness.py): `StalenessDetector` assessing TTL age-outs and expirations.
 - [src/eig/packet.py](src/eig/packet.py): `EvidencePacket` and `Quarantined` data structures with SHA-256 digest computation.
 - [src/eig/errors.py](src/eig/errors.py): Structured findings and exception hierarchy (`Finding`, `Severity`, `IsolationViolation`, `ContaminatedPacket`).
+
+Install the optional HTTP adapter with `pip install -e ".[web]"`, then launch
+it with `uvicorn eig.app:create_app --factory`. The API exposes health,
+candidate, meeting-surface, audit, and disposition operations. It deliberately
+has no broker endpoint; approval and execution remain backend authority
+boundaries.
+
+## Trade Coordinator Core
+
+`eig.coordinator.Coordinator` composes the EIG packet boundary with a typed,
+stage-aware candidate registry. It provides:
+
+- immutable candidate lifecycle events and separate `BRANDED_TRADE_SET` and
+    `ALGO_SINGLE` identities;
+- gate definitions/evaluations where `WARN` does not become `FAIL`, while
+    required `UNKNOWN` and `STALE` results block only their stage;
+- structured `LCAE` records for collective-action failures and independent
+    sleeve rescue with fresh child identity and no inherited conviction;
+- decimal expected-value, sensitivity, and risk-unit sizing helpers; and
+- proposal-only execution handoff. Account availability and the kill switch
+    can block execution, but cannot delete or erase a research candidate.
+
+The Coordinator has no broker capability. `generate_execution_proposal` creates
+an immutable `PROPOSED` payload and `approve_exact` requires its exact hash;
+approval remains blocked when the account is unavailable or the kill switch is
+locked. The current implementation is an in-process compatibility layer for
+the dependency-free library. Its event and typed-domain boundaries are designed
+to be backed by a persistent repository without changing EIG's public APIs.
+
+Install the optional HTTP adapter with `pip install -e ".[web]"`, then launch
+it with `uvicorn eig.app:create_app --factory`. The API includes health,
+candidate, meeting-surface, audit, disposition, proposal, and exact-hash
+approval operations. It deliberately has no broker endpoint.
