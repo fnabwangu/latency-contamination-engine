@@ -87,6 +87,9 @@ class CoordinatorService:
     def detect_lcaes(self):
         detected = detect_packet_errors(self.coordinator.run_id, self.packets.values())
         self.coordinator.lcaes.extend(detected)
+        if self.coordinator.registry is not None:
+            for lcae in detected:
+                self.coordinator.registry.save_lcae(lcae)
         return detected
 
     def register_independence(self, record: IndependenceRecord) -> IndependenceRecord:
@@ -116,6 +119,9 @@ class CoordinatorService:
     def evaluate_gate_graph(self, definitions: tuple[GateDefinition, ...], results: Mapping[str, GateResult], stage: str) -> StageDecision:
         decision = GateGraph(definitions).evaluate(results, stage)
         self.coordinator.gate_evaluations.extend(decision.blockers + decision.warnings + decision.unknowns)
+        if self.coordinator.registry is not None:
+            for evaluation in decision.blockers + decision.warnings + decision.unknowns:
+                self.coordinator.registry.save_gate_evaluation(evaluation)
         return decision
 
     def score_candidate(self, probability, expected_gain, expected_loss, costs=0):

@@ -49,6 +49,18 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
     PRIMARY KEY (operation, key)
 );
 
+CREATE TABLE IF NOT EXISTS gate_evaluations (
+    evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    gate_id TEXT NOT NULL,
+    payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lcaes (
+    lcae_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_id TEXT NOT NULL,
+    payload TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS lifecycle_events_candidate_idx
     ON lifecycle_events(candidate_id);
 CREATE INDEX IF NOT EXISTS candidates_tenant_idx ON candidates(tenant_id);

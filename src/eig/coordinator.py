@@ -225,6 +225,8 @@ class Coordinator:
             self.events = [event for candidate in self.candidates.values() for event in registry.load_events(candidate.candidate_id)]
             self.proposals = {proposal.proposal_id: proposal for proposal in registry.load_proposals()}
             self.outcomes = {outcome.candidate_id: outcome for outcome in registry.load_outcomes()}
+            self.gate_evaluations = list(registry.load_gate_evaluations())
+            self.lcaes = list(registry.load_lcaes())
 
     def _persist_candidate(self, candidate: Candidate) -> None:
         if self.registry is not None:
@@ -301,6 +303,8 @@ class Coordinator:
             evaluation = GateEvaluation(definition.gate_id, stage, definition.gate_class, definition.required, result, "configured result", policy_version=definition.policy_version)
             evaluations.append(evaluation)
             self.gate_evaluations.append(evaluation)
+            if self.registry is not None:
+                self.registry.save_gate_evaluation(evaluation)
         return tuple(evaluations)
 
     @staticmethod
@@ -314,6 +318,8 @@ class Coordinator:
     def detect_lcae(self, candidate_id: str, category: str, stage: str, agents: Iterable[str], evidence_ids: Iterable[str], severity: str, correction: str) -> LCAE:
         lcae = LCAE(self.run_id, candidate_id, category, stage, tuple(agents), tuple(evidence_ids), severity, correction)
         self.lcaes.append(lcae)
+        if self.registry is not None:
+            self.registry.save_lcae(lcae)
         return lcae
 
     def rescue_sleeve(self, source_candidate_id: str, sleeve: Sleeve, name: str | None = None) -> Candidate:

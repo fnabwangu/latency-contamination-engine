@@ -15,7 +15,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .coordinator import Candidate, CandidateState, CandidateType, ExecutionProposal, LifecycleEvent, Sleeve
+from .coordinator import Candidate, CandidateState, CandidateType, ExecutionProposal, GateClass, GateEvaluation, GateResult, LCAE, LCAEStatus, LifecycleEvent, Sleeve
 from .analytics import ShadowOutcome
 from .coordination import AgentPacket, IndependenceRecord, Vote
 from .evidence import EvidenceModality, EvidenceRecord
@@ -98,6 +98,16 @@ class SQLiteRegistry:
                 key TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 PRIMARY KEY (operation, key)
+            );
+            CREATE TABLE IF NOT EXISTS gate_evaluations (
+                evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gate_id TEXT NOT NULL,
+                payload TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS lcaes (
+                lcae_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                candidate_id TEXT NOT NULL,
+                payload TEXT NOT NULL
             );
             """
         )
@@ -216,6 +226,33 @@ class SQLiteRegistry:
     def release_idempotency(self, operation: str, key: str) -> None:
         self.connection.execute("DELETE FROM idempotency_keys WHERE operation = ? AND key = ?", (operation, key))
         self.connection.commit()
+
+    def save_gate_evaluation(self, evaluation: GateEvaluation) -> None:
+        self.connection.execute("INSERT INTO gate_evaluations(gate_id, payload) VALUES (?, ?)", (evaluation.gate_id, json.dumps(_encode(asdict(evaluation)), sort_keys=True)))
+        self.connection.commit()
+
+    def load_gate_evaluations(self) -> tuple[GateEvaluation, ...]:
+        rows = self.connection.execute("SELECT payload FROM gate_evaluations ORDER BY evaluation_id").fetchall()
+        evaluations = []
+        for row in rows:
+            value = _decode(json.loads(row[0]))
+            value["gate_class"] = GateClass(value["gate_class"])
+            value["result"] = GateResult(value["result"])
+            evaluations.append(GateEvaluation(**value))
+        return tuple(evaluations)
+
+    def save_lcae(self, lcae: LCAE) -> None:
+        self.connection.execute("INSERT INTO lcaes(candidate_id, payload) VALUES (?, ?)", (lcae.candidate_id, json.dumps(_encode(asdict(lcae)), sort_keys=True)))
+        self.connection.commit()
+
+    def load_lcaes(self) -> tuple[LCAE, ...]:
+        rows = self.connection.execute("SELECT payload FROM lcaes ORDER BY lcae_id").fetchall()
+        lcaes = []
+        for row in rows:
+            value = _decode(json.loads(row[0]))
+            value["status"] = LCAEStatus(value["status"])
+            lcaes.append(LCAE(**value))
+        return tuple(lcaes)
 
     def close(self) -> None:
         self.connection.close()
