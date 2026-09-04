@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Mapping
 
 from .coordination import AgentPacket, DecisionCoverageMatrix, IndependenceRecord
 from .coordinator import Candidate, Coordinator
@@ -10,6 +11,10 @@ from .evidence import EvidenceRecord, EvidenceStore
 from .analytics import ShadowOutcome
 from .metrics import CoordinatorMetrics, snapshot
 from .lcae import detect_packet_errors
+from .latency import InformationValue, OpportunityClock, ResearchDecision, choose_research_action
+from .gates import GateGraph, StageDecision
+from .coordinator import GateDefinition, GateResult, LCAE
+from .packages import BrandedTradeSet, build_trade_set, promote_sleeve_to_algo, PackageError
 
 
 class CoordinatorService:
@@ -98,3 +103,34 @@ class CoordinatorService:
 
     def get_audit_view(self, candidate_id: str):
         return self.coordinator.audit_view(candidate_id)
+
+    def estimate_information_value(self, value: InformationValue):
+        return value.net_value
+
+    def stop_or_continue_research(self, clock: OpportunityClock, value: InformationValue, now: datetime, required_unknowns: bool = False, fast_lane: bool = False) -> ResearchDecision:
+        return choose_research_action(clock, value, now, required_unknowns, fast_lane)
+
+    def detect_lcae(self, candidate_id: str, category: str, stage: str, agents=(), evidence_ids=(), severity="MEDIUM", correction="") -> LCAE:
+        return self.coordinator.detect_lcae(candidate_id, category, stage, agents, evidence_ids, severity, correction)
+
+    def evaluate_gate_graph(self, definitions: tuple[GateDefinition, ...], results: Mapping[str, GateResult], stage: str) -> StageDecision:
+        decision = GateGraph(definitions).evaluate(results, stage)
+        self.coordinator.gate_evaluations.extend(decision.blockers + decision.warnings + decision.unknowns)
+        return decision
+
+    def score_candidate(self, probability, expected_gain, expected_loss, costs=0):
+        return self.coordinator.score(probability, expected_gain, expected_loss, costs)
+
+    def build_trade_set(self, candidate_id: str) -> BrandedTradeSet:
+        return build_trade_set(self.coordinator.get_candidate(candidate_id))
+
+    def promote_sleeve_to_algo(self, candidate_id: str, sleeve_id: str):
+        candidate = self.coordinator.get_candidate(candidate_id)
+        sleeve = next((sleeve for sleeve in candidate.sleeves if sleeve.sleeve_id == sleeve_id), None)
+        if sleeve is None:
+            raise PackageError(f"sleeve {sleeve_id} not found")
+        child = promote_sleeve_to_algo(candidate, sleeve)
+        return self.coordinator.register_candidate(child)
+
+    def refresh_candidate(self, candidate_id: str) -> Candidate:
+        return self.coordinator.get_candidate(candidate_id)
