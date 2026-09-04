@@ -90,9 +90,11 @@ class ContaminationDetector:
         self, claim: Claim, ledger: Mapping[str, Claim], cycle: int
     ) -> Iterable[Finding]:
         """Reasoning output from an earlier cycle cannot be recycled as evidence."""
-        if claim.etype not in OBSERVED_TYPES:
-            return
-        stale_origin = claim.provenance.cycle < cycle and claim.is_agent_origin
+        stale_origin = (
+            claim.etype in OBSERVED_TYPES
+            and claim.provenance.cycle < cycle
+            and claim.is_agent_origin
+        )
         laundered_parent = any(
             ledger[pid].is_agent_origin and ledger[pid].provenance.cycle < cycle
             for pid in claim.provenance.upstream
