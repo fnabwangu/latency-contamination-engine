@@ -232,6 +232,13 @@ and `/handoffs/execution` carry integration contracts. The external systems
 must return typed results to the Coordinator and use the Root Execution Engine
 for any broker-bound action.
 
+The human-facing surface is composed from native web components in `ui/`:
+`candidate-shelves` groups the Coordinator queue, Back Burner, and Archive;
+`candidate-card` exposes minimum-sufficient decision facts and actions; and
+`audit-panel` provides lifecycle, gate, and LCAE detail on demand. The browser
+only requests and displays Coordinator state; it does not own approval,
+persistence, or execution.
+
 Set `EIG_TENANT_ID` to bind an HTTP app to a tenant. Requests may provide
 `X-Tenant-ID`; mismatched scopes receive `403`, and candidates created through
 the API are stamped with the bound tenant before persistence.

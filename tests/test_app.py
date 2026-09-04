@@ -22,6 +22,9 @@ def test_http_adapter_exposes_coordinator_surface():
     }
     assert expected <= routes
     assert not any("broker" in path for path in routes)
+    client = TestClient(app)
+    assert client.get("/ui/components.js").status_code == 200
+    assert client.get("/ui/components.css").status_code == 200
 
 
 def test_http_candidates_recover_from_configured_sqlite(tmp_path):

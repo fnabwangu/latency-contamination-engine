@@ -34,6 +34,7 @@
     .empty { color: var(--muted); border-left: 3px solid var(--coral); padding: 18px; background: #fffdf8; }
     @media (max-width: 780px) { header { display: block; } .run { display: block; margin-top: 16px; } .cards { grid-template-columns: 1fr; } article { min-height: 0; } }
   </style>
+  <link rel="stylesheet" href="/ui/components.css">
 </head>
 <body>
   <header>
@@ -42,21 +43,9 @@
   </header>
   <main>
     <div class="bar"><h2>Priority candidates</h2><span class="count" id="count"></span></div>
-    <section class="cards" id="cards" aria-live="polite"></section>
+    <candidate-shelves aria-live="polite"></candidate-shelves>
+    <audit-panel hidden></audit-panel>
   </main>
-  <script>
-    const cards = document.querySelector('#cards');
-    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-    async function load() {
-      try {
-        const [health, response] = await Promise.all([fetch('/health'), fetch('/meeting-surface')]);
-        const status = await health.json(); const candidates = await response.json();
-        document.querySelector('#run').textContent = `Run ${status.run_id.slice(0, 12)} · live`; document.querySelector('#count').textContent = `${candidates.length} of 3 shown`;
-        cards.innerHTML = candidates.length ? candidates.map((candidate) => `<article class="${candidate.state === 'BLOCKED' ? 'blocked' : ''}"><div class="card-head"><h3>${escapeHtml(candidate.name)}</h3><span class="badge">${escapeHtml(candidate.state)}</span></div><div class="id">${escapeHtml(candidate.candidate_id)} · ${escapeHtml(candidate.candidate_type)}</div><dl><dt>Thesis</dt><dd>${escapeHtml(candidate.thesis)}</dd><dt>Why now</dt><dd>${escapeHtml(candidate.catalyst)}</dd><dt>Horizon</dt><dd>${escapeHtml(candidate.horizon)}</dd><dt>Dissent</dt><dd>${escapeHtml(candidate.dissent || 'No material dissent recorded')}</dd></dl><div class="actions"><button data-action="BACK_BURNER" data-id="${escapeHtml(candidate.candidate_id)}">Park</button><button data-action="DISCARDED" data-id="${escapeHtml(candidate.candidate_id)}">Discard</button></div></article>`).join('') : '<div class="empty">No active candidates are surfaced.</div>';
-      } catch (error) { document.querySelector('#run').textContent = 'Coordinator unavailable'; cards.innerHTML = '<div class="empty">The backend could not be reached. Candidate state remains authoritative on the server.</div>'; }
-    }
-    cards.addEventListener('click', async (event) => { const button = event.target.closest('button'); if (!button) return; await fetch(`/candidates/${button.dataset.id}/disposition`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ disposition: button.dataset.action, reason: 'human meeting-surface action' }) }); load(); });
-    load();
-  </script>
+  <script type="module" src="/ui/components.js"></script>
 </body>
 </html>

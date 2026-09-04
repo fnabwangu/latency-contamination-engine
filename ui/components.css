@@ -1,0 +1,11 @@
+.shelves { display: flex; gap: 8px; border-bottom: 1px solid var(--line); margin-bottom: 22px; overflow-x: auto; }
+.shelf-tab { border: 0; border-bottom: 3px solid transparent; padding: 10px 6px; color: var(--muted); white-space: nowrap; }
+.shelf-tab.active { border-bottom-color: var(--coral); color: var(--ink); background: transparent; }
+.shelf-tab span { color: var(--teal); }
+.candidate-card { min-height: 340px; }
+.audit-panel { position: fixed; z-index: 5; inset: 8vh 6vw; overflow: auto; background: #fffdf8; border: 1px solid var(--line); border-top: 5px solid var(--coral); padding: 28px; box-shadow: 0 20px 70px #1d252455; }
+.audit-panel .close { float: right; }
+.audit-panel h2 { font-size: 2rem; margin: 8px 0 18px; }
+.audit-panel h3 { margin: 24px 0 8px; font: 700 12px system-ui, sans-serif; letter-spacing: 0; text-transform: uppercase; color: var(--muted); }
+.audit-panel ul { padding-left: 20px; }
+@media (max-width: 780px) { .audit-panel { inset: 4vh 20px; padding: 20px; } }

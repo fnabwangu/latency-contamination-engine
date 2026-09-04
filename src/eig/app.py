@@ -175,6 +175,8 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
             raise HTTPException(status_code=403, detail="tenant scope mismatch")
 
     ui_path = Path(__file__).resolve().parents[2] / "ui" / "index.html"
+    ui_components_path = ui_path.parent / "components.js"
+    ui_styles_path = ui_path.parent / "components.css"
 
     @app.get("/ui", include_in_schema=False)
     def ui():
@@ -182,6 +184,20 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         if not ui_path.exists():
             raise HTTPException(status_code=404, detail="UI asset not installed")
         return HTMLResponse(ui_path.read_text(encoding="utf-8"))
+
+    @app.get("/ui/components.js", include_in_schema=False)
+    def ui_components():
+        from fastapi.responses import Response
+        if not ui_components_path.exists():
+            raise HTTPException(status_code=404, detail="UI component asset not installed")
+        return Response(ui_components_path.read_text(encoding="utf-8"), media_type="text/javascript")
+
+    @app.get("/ui/components.css", include_in_schema=False)
+    def ui_styles():
+        from fastapi.responses import Response
+        if not ui_styles_path.exists():
+            raise HTTPException(status_code=404, detail="UI style asset not installed")
+        return Response(ui_styles_path.read_text(encoding="utf-8"), media_type="text/css")
 
     @app.get("/health")
     def health(x_tenant_id: str | None = Header(default=None)) -> dict[str, str]:
