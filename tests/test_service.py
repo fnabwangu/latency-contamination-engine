@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 
-from eig import AgentPacket, Coordinator, CoordinatorService, CoverageStatus, DecisionCoverageMatrix, Vote
+from eig import AgentPacket, Coordinator, CoordinatorService, CoverageStatus, DecisionCoverageMatrix, EvidenceModality, EvidenceRecord, Vote
 from eig.types import utcnow
 
 
@@ -30,3 +30,10 @@ def test_coverage_requires_owner_and_preserves_unanswered_factors():
     matrix.assign("dissent", "BITO")
     assert matrix.cells["dissent"].owner == "BITO"
     assert "authorization" in matrix.unanswered()
+
+
+def test_service_registers_immutable_evidence():
+    service = CoordinatorService(Coordinator("run-1"))
+    now = utcnow()
+    record = EvidenceRecord("filing", now, now, EvidenceModality.FILING, "guidance", candidate_ids=("c1",))
+    assert service.register_evidence(record) == service.get_evidence(record.evidence_id)

@@ -41,6 +41,9 @@ from .execution import (
     OrderStatus,
     RootExecutionEngine,
 )
+from .evidence import EvidenceModality, EvidenceRecord, EvidenceStore
+from .analytics import GateAnalytics, ShadowOutcome, summarize_gates
+from .latency import InformationValue, OpportunityClock, ResearchDecision, choose_research_action
 
 try:
     from .app import create_app
@@ -84,8 +87,12 @@ __all__ = [
     "ExecutionProposal",
     "ExecutionError",
     "ExecutionMandate",
+    "EvidenceModality",
+    "EvidenceRecord",
+    "EvidenceStore",
     "Finding",
     "GateClass",
+    "GateAnalytics",
     "GateDefinition",
     "GateEvaluation",
     "GateResult",
@@ -93,19 +100,25 @@ __all__ = [
     "IsolationBarrier",
     "IsolationViolation",
     "IndependenceRecord",
+    "InformationValue",
     "LCAE",
     "LifecycleEvent",
     "OrderReceipt",
     "OrderStatus",
+    "OpportunityClock",
     "OBSERVED_TYPES",
     "Provenance",
     "Quarantined",
     "Severity",
     "Sleeve",
+    "ShadowOutcome",
     "SQLiteRegistry",
     "SourceKind",
     "StalenessDetector",
     "StalenessPolicy",
     "RootExecutionEngine",
+    "ResearchDecision",
     "Vote",
+    "choose_research_action",
+    "summarize_gates",
 ]

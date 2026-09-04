@@ -199,3 +199,9 @@ Install the optional HTTP adapter with `pip install -e ".[web]"`, then launch
 it with `uvicorn eig.app:create_app --factory`. The API includes health,
 candidate, meeting-surface, audit, disposition, proposal, and exact-hash
 approval operations. It deliberately has no broker endpoint.
+
+Additional Coordinator modules are available for `EvidenceRecord` and
+content-addressed `EvidenceStore`, `DecisionCoverageMatrix`, typed
+`AgentPacket`, `OpportunityClock` and information-value routing, gate
+analytics, and deterministic safety replays. `RootExecutionEngine` remains
+the only domain object that accepts a broker adapter.

@@ -6,6 +6,7 @@ from datetime import datetime
 
 from .coordination import AgentPacket, DecisionCoverageMatrix, IndependenceRecord
 from .coordinator import Candidate, Coordinator
+from .evidence import EvidenceRecord, EvidenceStore
 
 
 class CoordinatorService:
@@ -14,6 +15,7 @@ class CoordinatorService:
         self.packets: dict[str, AgentPacket] = {}
         self.coverage = DecisionCoverageMatrix()
         self.independence: dict[str, IndependenceRecord] = {}
+        self.evidence = EvidenceStore()
 
     def start_coordination_run(self) -> str:
         return self.coordinator.run_id
@@ -32,6 +34,12 @@ class CoordinatorService:
 
     def get_agent_independence(self) -> tuple[IndependenceRecord, ...]:
         return tuple(self.independence.values())
+
+    def register_evidence(self, record: EvidenceRecord) -> EvidenceRecord:
+        return self.evidence.register(record)
+
+    def get_evidence(self, evidence_id: str) -> EvidenceRecord:
+        return self.evidence.get(evidence_id)
 
     def register_independence(self, record: IndependenceRecord) -> IndependenceRecord:
         self.independence[record.agent_id] = record
