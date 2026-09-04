@@ -44,6 +44,7 @@ from .execution import (
 from .evidence import EvidenceModality, EvidenceRecord, EvidenceStore
 from .analytics import GateAnalytics, ShadowOutcome, summarize_gates
 from .latency import InformationValue, OpportunityClock, ResearchDecision, choose_research_action
+from .packages import BrandedTradeSet, PackageError, build_trade_set, promote_sleeve_to_algo
 
 try:
     from .app import create_app
@@ -65,6 +66,7 @@ __all__ = [
     "ApprovalError",
     "AgentPacket",
     "BrokerAdapter",
+    "BrandedTradeSet",
     "Candidate",
     "CandidateState",
     "CandidateType",
@@ -105,6 +107,7 @@ __all__ = [
     "LifecycleEvent",
     "OrderReceipt",
     "OrderStatus",
+    "PackageError",
     "OpportunityClock",
     "OBSERVED_TYPES",
     "Provenance",
@@ -119,6 +122,8 @@ __all__ = [
     "RootExecutionEngine",
     "ResearchDecision",
     "Vote",
+    "build_trade_set",
     "choose_research_action",
     "summarize_gates",
+    "promote_sleeve_to_algo",
 ]
