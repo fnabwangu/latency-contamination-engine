@@ -221,6 +221,10 @@ are in `schemas/`. SQLite currently initializes the same tables automatically
 for the embedded service, including durable evidence, packet, independence,
 proposal, lifecycle, and shadow-outcome records.
 
+Mutation idempotency keys are also recorded in SQLite. A repeated key returns
+the original in-process result when available; after restart, the same key is
+rejected before the mutation callback can run.
+
 Additional Coordinator modules are available for `EvidenceRecord` and
 content-addressed `EvidenceStore`, `DecisionCoverageMatrix`, typed
 `AgentPacket`, `OpportunityClock` and information-value routing, gate

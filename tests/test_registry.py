@@ -70,3 +70,13 @@ def test_coordination_records_survive_restart(tmp_path):
     assert recovered.get_evidence(evidence.evidence_id) == evidence
     assert recovered.packets[packet.packet_id] == packet
     recovered_store.close()
+
+
+def test_idempotency_claim_survives_restart(tmp_path):
+    path = tmp_path / "coordinator.sqlite"
+    first = SQLiteRegistry(path)
+    assert first.claim_idempotency("candidate", "request-1")
+    first.close()
+    recovered = SQLiteRegistry(path)
+    assert not recovered.claim_idempotency("candidate", "request-1")
+    recovered.close()

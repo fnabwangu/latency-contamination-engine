@@ -42,6 +42,13 @@ CREATE TABLE IF NOT EXISTS independence (
     payload TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+    operation TEXT NOT NULL,
+    key TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (operation, key)
+);
+
 CREATE INDEX IF NOT EXISTS lifecycle_events_candidate_idx
     ON lifecycle_events(candidate_id);
 CREATE INDEX IF NOT EXISTS candidates_tenant_idx ON candidates(tenant_id);

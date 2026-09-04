@@ -31,6 +31,8 @@ class CoordinatorService:
         identity = f"{operation}:{key}"
         if identity in self._idempotency:
             return self._idempotency[identity]
+        if self.coordinator.registry is not None and not self.coordinator.registry.claim_idempotency(operation, key):
+            raise ValueError(f"idempotency key already processed: {operation}:{key}")
         result = action()
         self._idempotency[identity] = result
         return result

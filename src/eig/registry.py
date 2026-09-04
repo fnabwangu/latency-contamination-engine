@@ -93,6 +93,12 @@ class SQLiteRegistry:
                 agent_id TEXT PRIMARY KEY,
                 payload TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS idempotency_keys (
+                operation TEXT NOT NULL,
+                key TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (operation, key)
+            );
             """
         )
         self.connection.commit()
@@ -198,6 +204,14 @@ class SQLiteRegistry:
     def load_independence(self) -> tuple[IndependenceRecord, ...]:
         rows = self.connection.execute("SELECT payload FROM independence ORDER BY agent_id").fetchall()
         return tuple(IndependenceRecord(**_decode(json.loads(row[0]))) for row in rows)
+
+    def claim_idempotency(self, operation: str, key: str) -> bool:
+        cursor = self.connection.execute(
+            "INSERT OR IGNORE INTO idempotency_keys(operation, key) VALUES (?, ?)",
+            (operation, key),
+        )
+        self.connection.commit()
+        return cursor.rowcount == 1
 
     def close(self) -> None:
         self.connection.close()
