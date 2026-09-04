@@ -16,3 +16,9 @@ def test_contradictions_are_opt_in_and_subject_scoped():
     contradictions = graph.contradictions()
     assert len(contradictions) == 1
     assert contradictions[0].left_id == "positive"
+
+
+def test_provenance_graph_exposes_multi_hop_cycle_decay():
+    graph = ProvenanceGraph((claim("old"), claim("new", ("old",))))
+    assert graph.ancestor_cycles("new") == (0,)
+    assert graph.temporally_stale("new", current_cycle=2, max_cycle_lag=1)

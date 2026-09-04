@@ -50,6 +50,27 @@ class ProvenanceGraph:
                     found.append(Contradiction(left.id, right.id, subject, "claims with the same contradiction group have opposite polarity"))
         return tuple(found)
 
+    def ancestor_cycles(self, claim_id: str) -> tuple[int, ...]:
+        if claim_id not in self.claims:
+            raise KeyError(claim_id)
+        cycles: set[int] = set()
+
+        def visit(current: str, seen: set[str]) -> None:
+            claim = self.claims.get(current)
+            if claim is None or current in seen:
+                return
+            cycles.add(claim.provenance.cycle)
+            for parent in claim.provenance.upstream:
+                visit(parent, seen | {current})
+
+        visit(claim_id, set())
+        return tuple(sorted(cycles))
+
+    def temporally_stale(self, claim_id: str, current_cycle: int, max_cycle_lag: int = 0) -> bool:
+        if max_cycle_lag < 0:
+            raise ValueError("max_cycle_lag cannot be negative")
+        return any(current_cycle - cycle > max_cycle_lag for cycle in self.ancestor_cycles(claim_id))
+
     def _has_cycle(self, claim_id: str, max_depth: int) -> bool:
         def visit(current: str, path: set[str], depth: int) -> bool:
             if depth > max_depth:
