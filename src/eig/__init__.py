@@ -48,6 +48,7 @@ from .packages import BrandedTradeSet, PackageError, build_trade_set, promote_sl
 from .forecast import CalibrationMetrics, Forecast, ForecastStatus, calibration_metrics
 from .metrics import CoordinatorMetrics, snapshot
 from .orchestrator import OrchestrationResult, ResearchTask, run_research
+from .lcae import detect_packet_errors
 
 try:
     from .app import create_app
@@ -111,6 +112,7 @@ __all__ = [
     "IndependenceRecord",
     "InformationValue",
     "LCAE",
+    "detect_packet_errors",
     "LifecycleEvent",
     "OrderReceipt",
     "OrderStatus",

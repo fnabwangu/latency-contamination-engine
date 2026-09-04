@@ -9,6 +9,7 @@ from .coordinator import Candidate, Coordinator
 from .evidence import EvidenceRecord, EvidenceStore
 from .analytics import ShadowOutcome
 from .metrics import CoordinatorMetrics, snapshot
+from .lcae import detect_packet_errors
 
 
 class CoordinatorService:
@@ -77,6 +78,11 @@ class CoordinatorService:
 
     def metrics(self) -> CoordinatorMetrics:
         return snapshot(self.coordinator, packets=len(self.packets), evidence=len(self.evidence.records))
+
+    def detect_lcaes(self):
+        detected = detect_packet_errors(self.coordinator.run_id, self.packets.values())
+        self.coordinator.lcaes.extend(detected)
+        return detected
 
     def register_independence(self, record: IndependenceRecord) -> IndependenceRecord:
         self.independence[record.agent_id] = record
