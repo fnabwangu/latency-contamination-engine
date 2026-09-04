@@ -53,7 +53,7 @@ from .lcae import detect_packet_errors
 from .gates import GateGraph, StageDecision
 from .exposure import Exposure, ExposureReport, hedge_reduces_named_risk, summarize_exposure
 from .provenance import Contradiction, ProvenanceGraph
-from .lineage import LineageCluster, cluster_claims, effective_independent_evidence
+from .lineage import LineageCluster, cluster_claims, effective_independent_evidence, weighted_independent_evidence
 from .reliability import SourceReliability
 
 try:
@@ -155,6 +155,7 @@ __all__ = [
     "summarize_exposure",
     "cluster_claims",
     "effective_independent_evidence",
+    "weighted_independent_evidence",
     "hedge_reduces_named_risk",
     "run_research",
     "snapshot",

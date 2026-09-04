@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from .types import Claim
+from .reliability import SourceReliability
 
 
 @dataclass(frozen=True)
@@ -29,3 +30,13 @@ def cluster_claims(claims: Iterable[Claim]) -> tuple[LineageCluster, ...]:
 
 def effective_independent_evidence(claims: Iterable[Claim]) -> int:
     return len(cluster_claims(claims))
+
+
+def weighted_independent_evidence(claims: Iterable[Claim], profiles: dict[str, SourceReliability]) -> float:
+    """Return one bounded reliability contribution per lineage cluster."""
+    values = tuple(claims)
+    total = 0.0
+    for cluster in cluster_claims(values):
+        source = cluster.sources[0]
+        total += float(profiles.get(source, SourceReliability(source)).weight())
+    return total
