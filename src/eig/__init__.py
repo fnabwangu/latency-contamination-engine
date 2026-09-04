@@ -47,6 +47,7 @@ from .latency import InformationValue, OpportunityClock, ResearchDecision, choos
 from .packages import BrandedTradeSet, PackageError, build_trade_set, promote_sleeve_to_algo
 from .forecast import CalibrationMetrics, Forecast, ForecastStatus, calibration_metrics
 from .metrics import CoordinatorMetrics, snapshot
+from .orchestrator import OrchestrationResult, ResearchTask, run_research
 
 try:
     from .app import create_app
@@ -115,6 +116,7 @@ __all__ = [
     "OrderStatus",
     "PackageError",
     "OpportunityClock",
+    "OrchestrationResult",
     "OBSERVED_TYPES",
     "Provenance",
     "Quarantined",
@@ -127,11 +129,13 @@ __all__ = [
     "StalenessPolicy",
     "RootExecutionEngine",
     "ResearchDecision",
+    "ResearchTask",
     "Vote",
     "build_trade_set",
     "choose_research_action",
     "calibration_metrics",
     "summarize_gates",
+    "run_research",
     "snapshot",
     "promote_sleeve_to_algo",
 ]
