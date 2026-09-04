@@ -55,6 +55,7 @@ from .exposure import Exposure, ExposureReport, hedge_reduces_named_risk, summar
 from .provenance import Contradiction, ProvenanceGraph
 from .lineage import LineageCluster, cluster_claims, effective_independent_evidence, weighted_independent_evidence
 from .reliability import SourceReliability
+from .reconcile import Reconciliation, ReconciliationStatus, reconcile
 
 try:
     from .app import create_app
@@ -145,6 +146,8 @@ __all__ = [
     "StalenessPolicy",
     "RootExecutionEngine",
     "ResearchDecision",
+    "Reconciliation",
+    "ReconciliationStatus",
     "ResearchTask",
     "SourceReliability",
     "Vote",
@@ -158,6 +161,7 @@ __all__ = [
     "weighted_independent_evidence",
     "hedge_reduces_named_risk",
     "run_research",
+    "reconcile",
     "snapshot",
     "promote_sleeve_to_algo",
 ]
