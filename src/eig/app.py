@@ -7,10 +7,11 @@ import os
 from typing import Any
 from pathlib import Path
 
-from .coordinator import Candidate, CandidateState, CandidateType, Coordinator
+from .coordinator import Candidate, CandidateState, CandidateType, Coordinator, GateDefinition, GateResult
 from .coordination import AgentPacket, CoverageStatus, IndependenceRecord, Vote
 from .evidence import EvidenceModality, EvidenceRecord
 from .analytics import ShadowOutcome
+from .gates import GateGraph
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
 
@@ -123,6 +124,11 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         realized_loss: Decimal | None = None
         resolved_at: str | None = None
 
+    class GateEvaluationRequest(BaseModel):
+        definitions: tuple[dict[str, Any], ...]
+        results: dict[str, str]
+        stage: str = Field(min_length=1, max_length=64)
+
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
         configured_tenant = tenant_id or os.environ.get("EIG_TENANT_ID", "default")
@@ -175,6 +181,20 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         require_mutation_auth(x_api_key)
         require_tenant(x_tenant_id)
         return [_jsonable(error) for error in coordinator_service.detect_lcaes()]
+
+    @app.post("/gates/evaluate")
+    def gates_evaluate(request: GateEvaluationRequest, x_api_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
+
+        def evaluate():
+            definitions = tuple(GateDefinition(**definition) for definition in request.definitions)
+            results = {gate_id: GateResult(result) for gate_id, result in request.results.items()}
+            decision = GateGraph(definitions).evaluate(results, request.stage)
+            coordinator_service.coordinator.gate_evaluations.extend((decision.blockers + decision.warnings + tuple(decision.unknowns)))
+            return decision
+
+        return _jsonable(coordinator_service.idempotent(idempotency_key, "gate-evaluation", evaluate))
 
     @app.post("/evidence", status_code=201)
     def evidence(request: EvidenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:

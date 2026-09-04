@@ -10,7 +10,7 @@ def test_http_adapter_exposes_safe_surface():
     except RuntimeError:
         pytest.skip("fastapi is not installed")
     routes = {route.path for route in app.routes}
-    assert {"/health", "/candidates", "/meeting-surface", "/metrics", "/lcaes/detect", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/candidates/{candidate_id}/outcome", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
+    assert {"/health", "/candidates", "/meeting-surface", "/metrics", "/lcaes/detect", "/gates/evaluate", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/candidates/{candidate_id}/outcome", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
     assert not any("broker" in path for path in routes)
 
 
@@ -71,3 +71,15 @@ def test_http_tenant_scope_is_enforced(monkeypatch):
     response = client.post("/candidates", headers={"X-Tenant-ID": "alpha"}, json={"candidate_id": "tenant-1", "candidate_type": "ALGO_SINGLE", "name": "Tenant candidate", "thesis": "thesis", "catalyst": "catalyst", "horizon": "day"})
     assert response.status_code == 201
     assert response.json()["tenant_id"] == "alpha"
+
+
+def test_http_gate_evaluation_separates_warning_and_blocker():
+    try:
+        client = TestClient(create_app())
+    except RuntimeError:
+        pytest.skip("fastapi is not installed")
+    request = {"definitions": [{"gate_id": "warning", "gate_class": "WARNING", "stage": "execution", "owner": "Root"}, {"gate_id": "quote", "gate_class": "EXECUTION_HARD", "stage": "execution", "owner": "Root"}], "results": {"warning": "WARN", "quote": "UNKNOWN"}, "stage": "execution"}
+    response = client.post("/gates/evaluate", json=request, headers={"Idempotency-Key": "gates-1"})
+    assert response.status_code == 200
+    assert response.json()["blocked"] is True
+    assert len(response.json()["warnings"]) == 1
