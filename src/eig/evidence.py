@@ -83,3 +83,6 @@ class EvidenceStore:
 
     def fresh(self, candidate_id: str, now: datetime | None = None) -> tuple[EvidenceRecord, ...]:
         return tuple(record for record in self.for_candidate(candidate_id) if not record.is_expired(now))
+
+    def independent_count(self, candidate_id: str) -> int:
+        return len({record.source for record in self.for_candidate(candidate_id)})

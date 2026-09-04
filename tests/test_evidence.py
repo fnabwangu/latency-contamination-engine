@@ -18,3 +18,12 @@ def test_evidence_expiry_is_explicit():
     record = EvidenceRecord("filing", now, now, EvidenceModality.FILING, "guidance", candidate_ids=("c1",)).with_ttl(timedelta(minutes=5))
     assert not record.is_expired(now)
     assert record.is_expired(record.expires_at)
+
+
+def test_evidence_store_counts_independent_sources():
+    now = utcnow()
+    store = EvidenceStore()
+    store.register(EvidenceRecord("feed", now, now, EvidenceModality.TEXT, "one", candidate_ids=("c1",)))
+    store.register(EvidenceRecord("feed", now, now, EvidenceModality.TEXT, "two", candidate_ids=("c1",)))
+    store.register(EvidenceRecord("filing", now, now, EvidenceModality.TEXT, "three", candidate_ids=("c1",)))
+    assert store.independent_count("c1") == 2

@@ -53,6 +53,7 @@ from .lcae import detect_packet_errors
 from .gates import GateGraph, StageDecision
 from .exposure import Exposure, ExposureReport, hedge_reduces_named_risk, summarize_exposure
 from .provenance import Contradiction, ProvenanceGraph
+from .lineage import LineageCluster, cluster_claims, effective_independent_evidence
 
 try:
     from .app import create_app
@@ -123,6 +124,7 @@ __all__ = [
     "LCAE",
     "detect_packet_errors",
     "LifecycleEvent",
+    "LineageCluster",
     "OrderReceipt",
     "OrderStatus",
     "PackageError",
@@ -149,6 +151,8 @@ __all__ = [
     "calibration_metrics",
     "summarize_gates",
     "summarize_exposure",
+    "cluster_claims",
+    "effective_independent_evidence",
     "hedge_reduces_named_risk",
     "run_research",
     "snapshot",
