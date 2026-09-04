@@ -206,6 +206,10 @@ coverage ownership/answers, and independence registers: `POST /packets`,
 identity, confidence bounds, and hard-veto requirements are validated before
 state is mutated.
 
+Set `EIG_TENANT_ID` to bind an HTTP app to a tenant. Requests may provide
+`X-Tenant-ID`; mismatched scopes receive `403`, and candidates created through
+the API are stamped with the bound tenant before persistence.
+
 Candidate shadow outcomes can be recorded through
 `POST /candidates/{candidate_id}/outcome` and survive SQLite restart. This
 keeps parked, discarded, blocked, and expired candidates available for later

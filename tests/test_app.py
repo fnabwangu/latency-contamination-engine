@@ -59,3 +59,15 @@ def test_mutations_require_configured_key_and_idempotency(monkeypatch):
     second = client.post("/candidates", json=payload, headers=headers)
     assert first.status_code == second.status_code == 201
     assert first.json()["candidate_id"] == second.json()["candidate_id"] == "auth-1"
+
+
+def test_http_tenant_scope_is_enforced(monkeypatch):
+    try:
+        monkeypatch.setenv("EIG_TENANT_ID", "alpha")
+        client = TestClient(create_app())
+    except RuntimeError:
+        pytest.skip("fastapi is not installed")
+    assert client.get("/health", headers={"X-Tenant-ID": "beta"}).status_code == 403
+    response = client.post("/candidates", headers={"X-Tenant-ID": "alpha"}, json={"candidate_id": "tenant-1", "candidate_type": "ALGO_SINGLE", "name": "Tenant candidate", "thesis": "thesis", "catalyst": "catalyst", "horizon": "day"})
+    assert response.status_code == 201
+    assert response.json()["tenant_id"] == "alpha"

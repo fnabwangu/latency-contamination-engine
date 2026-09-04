@@ -129,12 +129,17 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         coordinator_service = CoordinatorService(Coordinator(registry=SQLiteRegistry(configured_path), tenant_id=configured_tenant))
     else:
         coordinator_service = service
+        configured_tenant = coordinator_service.coordinator.tenant_id
     app = FastAPI(title="HedgeHog Trade Coordinator", version="0.1.0")
 
     def require_mutation_auth(api_key: str | None) -> None:
         expected = os.environ.get("EIG_API_KEY")
         if expected and api_key != expected:
             raise HTTPException(status_code=401, detail="authenticated mutation required")
+
+    def require_tenant(request_tenant: str | None) -> None:
+        if request_tenant is not None and request_tenant != configured_tenant:
+            raise HTTPException(status_code=403, detail="tenant scope mismatch")
 
     ui_path = Path(__file__).resolve().parents[2] / "ui" / "index.html"
 
@@ -146,20 +151,24 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return HTMLResponse(ui_path.read_text(encoding="utf-8"))
 
     @app.get("/health")
-    def health() -> dict[str, str]:
+    def health(x_tenant_id: str | None = Header(default=None)) -> dict[str, str]:
+        require_tenant(x_tenant_id)
         return {"status": "ok", "run_id": coordinator_service.start_coordination_run()}
 
     @app.get("/candidates")
-    def candidates() -> list[dict[str, Any]]:
+    def candidates(x_tenant_id: str | None = Header(default=None)) -> list[dict[str, Any]]:
+        require_tenant(x_tenant_id)
         return [_jsonable(candidate) for candidate in coordinator_service.list_candidates()]
 
     @app.get("/meeting-surface")
-    def meeting_surface() -> list[dict[str, Any]]:
+    def meeting_surface(x_tenant_id: str | None = Header(default=None)) -> list[dict[str, Any]]:
+        require_tenant(x_tenant_id)
         return [_jsonable(candidate) for candidate in coordinator_service.get_meeting_surface()]
 
     @app.post("/evidence", status_code=201)
-    def evidence(request: EvidenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+    def evidence(request: EvidenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
         try:
             record = coordinator_service.idempotent(idempotency_key, "evidence", lambda: coordinator_service.register_evidence(EvidenceRecord(**request.model_dump())))
         except ValueError as error:
@@ -167,15 +176,17 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(record)
 
     @app.get("/evidence/{evidence_id}")
-    def get_evidence(evidence_id: str) -> dict[str, Any]:
+    def get_evidence(evidence_id: str, x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_tenant(x_tenant_id)
         try:
             return _jsonable(coordinator_service.get_evidence(evidence_id))
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"evidence {evidence_id} not found") from error
 
     @app.post("/candidates/{candidate_id}/outcome", status_code=201)
-    def outcome(candidate_id: str, request: OutcomeRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+    def outcome(candidate_id: str, request: OutcomeRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
         try:
             result = coordinator_service.idempotent(idempotency_key, "outcome", lambda: coordinator_service.record_outcome(ShadowOutcome(candidate_id, **request.model_dump())))
         except KeyError as error:
@@ -183,8 +194,9 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(result)
 
     @app.post("/packets", status_code=201)
-    def packet(request: PacketRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+    def packet(request: PacketRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
         try:
             result = coordinator_service.idempotent(idempotency_key, "packet", lambda: coordinator_service.submit_agent_packet(AgentPacket(**request.model_dump())))
         except ValueError as error:
@@ -192,11 +204,13 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(result)
 
     @app.get("/coverage")
-    def coverage() -> dict[str, Any]:
+    def coverage(x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_tenant(x_tenant_id)
         return _jsonable(coordinator_service.get_coverage_matrix().cells)
 
     @app.post("/coverage/{factor}")
-    def coverage_update(factor: str, request: CoverageRequest) -> dict[str, Any]:
+    def coverage_update(factor: str, request: CoverageRequest, x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_tenant(x_tenant_id)
         try:
             if request.packet_id is None:
                 result = coordinator_service.get_coverage_matrix().assign(factor, request.owner)
@@ -207,33 +221,39 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(result)
 
     @app.get("/independence")
-    def independence() -> list[dict[str, Any]]:
+    def independence(x_tenant_id: str | None = Header(default=None)) -> list[dict[str, Any]]:
+        require_tenant(x_tenant_id)
         return [_jsonable(record) for record in coordinator_service.get_agent_independence()]
 
     @app.post("/independence", status_code=201)
-    def independence_register(request: IndependenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+    def independence_register(request: IndependenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
         return _jsonable(coordinator_service.idempotent(idempotency_key, "independence", lambda: coordinator_service.register_independence(IndependenceRecord(**request.model_dump()))))
 
     @app.post("/candidates", status_code=201)
-    def register(request: CandidateRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+    def register(request: CandidateRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
         try:
-            candidate = coordinator_service.idempotent(idempotency_key, "candidate", lambda: coordinator_service.coordinator.register_candidate(Candidate(**request.model_dump())))
+            values = {**request.model_dump(), "tenant_id": configured_tenant}
+            candidate = coordinator_service.idempotent(idempotency_key, "candidate", lambda: coordinator_service.coordinator.register_candidate(Candidate(**values)))
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         return _jsonable(candidate)
 
     @app.get("/candidates/{candidate_id}/audit")
-    def audit(candidate_id: str) -> dict[str, Any]:
+    def audit(candidate_id: str, x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_tenant(x_tenant_id)
         try:
             return _jsonable(coordinator_service.get_audit_view(candidate_id))
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
 
     @app.post("/candidates/{candidate_id}/disposition")
-    def disposition(candidate_id: str, request: DispositionRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+    def disposition(candidate_id: str, request: DispositionRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
 
         def apply_disposition():
             if request.disposition not in {CandidateState.BACK_BURNER, CandidateState.DISCARDED, CandidateState.ARCHIVED}:
@@ -249,8 +269,9 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(candidate)
 
     @app.post("/candidates/{candidate_id}/proposal", status_code=201)
-    def proposal(candidate_id: str, request: ProposalRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+    def proposal(candidate_id: str, request: ProposalRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
         try:
             result = coordinator_service.idempotent(idempotency_key, "proposal", lambda: coordinator_service.coordinator.generate_execution_proposal(candidate_id, **request.model_dump()))
         except KeyError as error:
@@ -260,8 +281,9 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(result)
 
     @app.post("/proposals/{proposal_id}/approve")
-    def approve(proposal_id: str, request: ApprovalRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+    def approve(proposal_id: str, request: ApprovalRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
         require_mutation_auth(x_api_key)
+        require_tenant(x_tenant_id)
         try:
             result = coordinator_service.idempotent(idempotency_key, "approval", lambda: coordinator_service.coordinator.approve_exact(proposal_id, request.payload_hash))
         except KeyError as error:
