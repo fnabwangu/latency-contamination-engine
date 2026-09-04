@@ -50,6 +50,7 @@ from .forecast import CalibrationMetrics, Forecast, ForecastStatus, calibration_
 from .metrics import CoordinatorMetrics, snapshot
 from .orchestrator import OrchestrationResult, ResearchTask, run_research
 from .lcae import detect_packet_errors
+from .gates import GateGraph, StageDecision
 
 try:
     from .app import create_app
@@ -106,6 +107,7 @@ __all__ = [
     "GateClass",
     "GateAnalytics",
     "GateDefinition",
+    "GateGraph",
     "GateEvaluation",
     "GateResult",
     "Freshness",
@@ -126,6 +128,7 @@ __all__ = [
     "Quarantined",
     "Severity",
     "Sleeve",
+    "StageDecision",
     "ShadowOutcome",
     "SQLiteRegistry",
     "SourceKind",
