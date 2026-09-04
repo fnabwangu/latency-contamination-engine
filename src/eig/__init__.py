@@ -35,6 +35,7 @@ from .registry import SQLiteRegistry
 from .service import CoordinatorService
 from .execution import (
     BrokerAdapter,
+    AlgoRiskPolicy,
     ExecutionError,
     ExecutionMandate,
     OrderReceipt,
@@ -69,6 +70,7 @@ __all__ = [
     "AUTHORITY",
     "ApprovalError",
     "AgentPacket",
+    "AlgoRiskPolicy",
     "BrokerAdapter",
     "BrandedTradeSet",
     "Candidate",

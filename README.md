@@ -210,6 +210,12 @@ state is mutated.
 candidate states, packets, evidence, gates, LCAEs, proposals, outcomes, and
 meeting-surface count. It does not return account identifiers or credentials.
 
+`AlgoRiskPolicy` provides configurable Algo-TF controls with defaults of
+$25,000 maximum aggregate dollar delta, a $750 intraday objective, a -$375
+soft throttle, a -$2,150 hard halt, and 2:1 minimum reward/risk. The objective
+never forces execution; the Root Execution Engine enforces the policy only
+after exact proposal approval.
+
 Set `EIG_TENANT_ID` to bind an HTTP app to a tenant. Requests may provide
 `X-Tenant-ID`; mismatched scopes receive `403`, and candidates created through
 the API are stamped with the bound tenant before persistence.
