@@ -1,0 +1,30 @@
+-- Coordinator persistence baseline. Apply once per database.
+CREATE TABLE IF NOT EXISTS candidates (
+    candidate_id TEXT PRIMARY KEY,
+    candidate_type TEXT NOT NULL CHECK (candidate_type IN ('BRANDED_TRADE_SET', 'ALGO_SINGLE')),
+    payload TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lifecycle_events (
+    event_id TEXT PRIMARY KEY,
+    candidate_id TEXT NOT NULL REFERENCES candidates(candidate_id),
+    payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS proposals (
+    proposal_id TEXT PRIMARY KEY,
+    candidate_id TEXT NOT NULL REFERENCES candidates(candidate_id),
+    payload TEXT NOT NULL,
+    UNIQUE (proposal_id, candidate_id)
+);
+
+CREATE TABLE IF NOT EXISTS shadow_outcomes (
+    candidate_id TEXT PRIMARY KEY REFERENCES candidates(candidate_id),
+    payload TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS lifecycle_events_candidate_idx
+    ON lifecycle_events(candidate_id);
+CREATE INDEX IF NOT EXISTS proposals_candidate_idx
+    ON proposals(candidate_id);

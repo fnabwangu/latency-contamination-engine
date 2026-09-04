@@ -211,6 +211,11 @@ Candidate shadow outcomes can be recorded through
 keeps parked, discarded, blocked, and expired candidates available for later
 selection-bias-aware gate analysis.
 
+The initial SQL baseline is in `migrations/001_coordinator.sql`. Versioned
+JSON Schemas for candidates, evidence, agent packets, and execution proposals
+are in `schemas/`. SQLite currently initializes the same tables automatically
+for the embedded service.
+
 Additional Coordinator modules are available for `EvidenceRecord` and
 content-addressed `EvidenceStore`, `DecisionCoverageMatrix`, typed
 `AgentPacket`, `OpportunityClock` and information-value routing, gate

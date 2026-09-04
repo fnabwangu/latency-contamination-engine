@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "candidate.schema.json",
+  "title": "Candidate",
+  "type": "object",
+  "required": ["candidate_id", "candidate_type", "name", "thesis", "catalyst", "horizon", "state"],
+  "properties": {
+    "candidate_id": {"type": "string", "minLength": 1},
+    "candidate_type": {"enum": ["BRANDED_TRADE_SET", "ALGO_SINGLE"]},
+    "name": {"type": "string", "minLength": 1},
+    "thesis": {"type": "string", "minLength": 1},
+    "catalyst": {"type": "string", "minLength": 1},
+    "horizon": {"type": "string", "minLength": 1},
+    "state": {"type": "string"},
+    "evidence_ids": {"type": "array", "items": {"type": "string"}},
+    "dissent": {"type": "string"}
+  },
+  "additionalProperties": true
+}

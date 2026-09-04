@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "execution_package.schema.json",
+  "title": "ExecutionProposal",
+  "type": "object",
+  "required": ["proposal_id", "proposal_version", "candidate_id", "instrument", "side", "quantity", "intended_loss", "absolute_loss", "entry_trigger", "expiry", "payload_hash", "state"],
+  "properties": {
+    "proposal_id": {"type": "string"},
+    "proposal_version": {"type": "integer", "minimum": 1},
+    "candidate_id": {"type": "string"},
+    "instrument": {"type": "string", "minLength": 1},
+    "side": {"enum": ["BUY", "SELL"]},
+    "quantity": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$"},
+    "intended_loss": {"type": "string"},
+    "absolute_loss": {"type": "string"},
+    "entry_trigger": {"type": "string", "minLength": 1},
+    "expiry": {"type": "string", "format": "date-time"},
+    "payload_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "state": {"enum": ["PROPOSED", "APPROVED"]}
+  },
+  "additionalProperties": false
+}

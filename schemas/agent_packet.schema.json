@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent_packet.schema.json",
+  "title": "AgentPacket",
+  "type": "object",
+  "required": ["packet_id", "run_id", "agent_id", "role", "as_of", "valid_until", "confidence", "vote"],
+  "properties": {
+    "packet_id": {"type": "string"},
+    "run_id": {"type": "string"},
+    "agent_id": {"type": "string", "minLength": 1},
+    "role": {"type": "string", "minLength": 1},
+    "candidate_ids": {"type": "array", "items": {"type": "string"}},
+    "as_of": {"type": "string", "format": "date-time"},
+    "valid_until": {"type": "string", "format": "date-time"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "vote": {"enum": ["SUPPORT", "CONDITIONAL_SUPPORT", "NEUTRAL", "OPPOSE", "HARD_VETO", "INSUFFICIENT_DATA"]},
+    "hard_veto": {"type": "boolean"},
+    "veto_invalidator": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}
