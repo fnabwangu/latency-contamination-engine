@@ -51,6 +51,7 @@ from .metrics import CoordinatorMetrics, snapshot
 from .orchestrator import OrchestrationResult, ResearchTask, run_research
 from .lcae import detect_packet_errors
 from .gates import GateGraph, StageDecision
+from .exposure import Exposure, ExposureReport, hedge_reduces_named_risk, summarize_exposure
 
 try:
     from .app import create_app
@@ -101,6 +102,8 @@ __all__ = [
     "EvidenceModality",
     "EvidenceRecord",
     "EvidenceStore",
+    "Exposure",
+    "ExposureReport",
     "Forecast",
     "ForecastStatus",
     "Finding",
@@ -142,6 +145,8 @@ __all__ = [
     "choose_research_action",
     "calibration_metrics",
     "summarize_gates",
+    "summarize_exposure",
+    "hedge_reduces_named_risk",
     "run_research",
     "snapshot",
     "promote_sleeve_to_algo",

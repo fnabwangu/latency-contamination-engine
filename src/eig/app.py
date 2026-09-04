@@ -12,6 +12,7 @@ from .coordination import AgentPacket, CoverageStatus, IndependenceRecord, Vote
 from .evidence import EvidenceModality, EvidenceRecord
 from .analytics import ShadowOutcome
 from .gates import GateGraph
+from .exposure import Exposure, summarize_exposure
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
 
@@ -129,6 +130,13 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         results: dict[str, str]
         stage: str = Field(min_length=1, max_length=64)
 
+    class ExposureRequest(BaseModel):
+        instrument: str = Field(min_length=1, max_length=32)
+        dollar_delta: Decimal
+        factor: str = Field(min_length=1, max_length=128)
+        risk_name: str = Field(min_length=1, max_length=128)
+        concentration_limit: Decimal = Field(gt=0, default=Decimal("25000"))
+
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
         configured_tenant = tenant_id or os.environ.get("EIG_TENANT_ID", "default")
@@ -195,6 +203,16 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
             return decision
 
         return _jsonable(coordinator_service.idempotent(idempotency_key, "gate-evaluation", evaluate))
+
+    @app.post("/exposure/evaluate")
+    def exposure_evaluate(requests: tuple[ExposureRequest, ...], x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
+        require_tenant(x_tenant_id)
+        if not requests:
+            raise HTTPException(status_code=422, detail="at least one exposure is required")
+        limit = requests[0].concentration_limit
+        if any(request.concentration_limit != limit for request in requests):
+            raise HTTPException(status_code=422, detail="concentration limit must be consistent")
+        return _jsonable(summarize_exposure((Exposure(**request.model_dump(exclude={"concentration_limit"})) for request in requests), limit))
 
     @app.post("/evidence", status_code=201)
     def evidence(request: EvidenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None), x_tenant_id: str | None = Header(default=None)) -> dict[str, Any]:
