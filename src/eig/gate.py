@@ -12,6 +12,7 @@ from .contamination import ContaminationDetector, ContaminationPolicy
 from .errors import Finding, IsolationViolation, Severity
 from .isolation import IsolationBarrier
 from .packet import EvidencePacket, Quarantined
+from .provenance import ProvenanceGraph
 from .staleness import StalenessDetector, StalenessPolicy
 from .types import (
     AUTHORITY,
@@ -174,10 +175,23 @@ class EpistemicIntegrityGate:
             flags.extend(f for f in findings if f.severity is Severity.FLAG)
             resolved[accepted.id] = accepted
 
+        contradictions = ProvenanceGraph(resolved.values()).contradictions()
+        for contradiction in contradictions:
+            flags.extend(
+                Finding(
+                    code="CONTRADICTORY_EVIDENCE",
+                    severity=Severity.FLAG,
+                    claim_id=claim_id,
+                    message=contradiction.message,
+                )
+                for claim_id in (contradiction.left_id, contradiction.right_id)
+            )
+
         return EvidencePacket(
             cycle=self.cycle,
             accepted=tuple(resolved.values()),
             quarantined=tuple(quarantined),
             flags=tuple(flags),
             demotions=tuple(demotions),
+            contradictions=contradictions,
         )

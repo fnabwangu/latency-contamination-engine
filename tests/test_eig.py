@@ -233,3 +233,13 @@ def test_prior_cycle_agent_reasoning_cannot_feed_current_hypothesis():
     packet = gate.build_packet()
     quarantined = {item.claim.id: item for item in packet.quarantined}
     assert "LATENCY_CONTAMINATION" in {finding.code for finding in quarantined["current"].findings}
+
+
+def test_packet_surfaces_contradictory_evidence_without_dropping_claims():
+    gate = make_gate(require_seal=False)
+    gate.submit(Claim("X", "up", EpistemicType.FACT, Provenance("feed-a", SourceKind.FEED), tags=frozenset({"contradiction_group:g", "polarity:positive"}), id="up"))
+    gate.submit(Claim("X", "down", EpistemicType.FACT, Provenance("feed-b", SourceKind.FEED), tags=frozenset({"contradiction_group:g", "polarity:negative"}), id="down"))
+    packet = gate.build_packet()
+    assert {claim.id for claim in packet.accepted} == {"up", "down"}
+    assert len(packet.contradictions) == 1
+    assert sum(finding.code == "CONTRADICTORY_EVIDENCE" for finding in packet.flags) == 2

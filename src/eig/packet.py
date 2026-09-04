@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from .errors import ContaminatedPacket, Finding
+from .provenance import Contradiction
 from .types import Claim, EpistemicType, utcnow
 
 
@@ -24,6 +25,7 @@ class EvidencePacket:
     quarantined: tuple[Quarantined, ...] = ()
     flags: tuple[Finding, ...] = ()
     demotions: tuple[Finding, ...] = ()
+    contradictions: tuple[Contradiction, ...] = ()
     created_at: datetime = field(default_factory=utcnow)
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
@@ -52,7 +54,7 @@ class EvidencePacket:
         lines = [
             f"EvidencePacket {self.id} cycle={self.cycle} digest={self.digest[:12]}",
             f"  accepted={len(self.accepted)} quarantined={len(self.quarantined)} "
-            f"demoted={len(self.demotions)} flagged={len(self.flags)}",
+            f"demoted={len(self.demotions)} flagged={len(self.flags)} contradictions={len(self.contradictions)}",
         ]
         for claim in self.accepted:
             lines.append(f"  + {claim}")
