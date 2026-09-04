@@ -7,6 +7,7 @@ from datetime import datetime
 from .coordination import AgentPacket, DecisionCoverageMatrix, IndependenceRecord
 from .coordinator import Candidate, Coordinator
 from .evidence import EvidenceRecord, EvidenceStore
+from .analytics import ShadowOutcome
 
 
 class CoordinatorService:
@@ -16,6 +17,18 @@ class CoordinatorService:
         self.coverage = DecisionCoverageMatrix()
         self.independence: dict[str, IndependenceRecord] = {}
         self.evidence = EvidenceStore()
+        self._idempotency: dict[str, object] = {}
+
+    def idempotent(self, key: str | None, operation: str, action):
+        """Run a mutation once for a caller-provided idempotency key."""
+        if not key:
+            return action()
+        identity = f"{operation}:{key}"
+        if identity in self._idempotency:
+            return self._idempotency[identity]
+        result = action()
+        self._idempotency[identity] = result
+        return result
 
     def start_coordination_run(self) -> str:
         return self.coordinator.run_id
@@ -40,6 +53,9 @@ class CoordinatorService:
 
     def get_evidence(self, evidence_id: str) -> EvidenceRecord:
         return self.evidence.get(evidence_id)
+
+    def record_outcome(self, outcome: ShadowOutcome) -> ShadowOutcome:
+        return self.coordinator.record_outcome(outcome)
 
     def register_independence(self, record: IndependenceRecord) -> IndependenceRecord:
         self.independence[record.agent_id] = record

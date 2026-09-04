@@ -206,6 +206,11 @@ coverage ownership/answers, and independence registers: `POST /packets`,
 identity, confidence bounds, and hard-veto requirements are validated before
 state is mutated.
 
+Candidate shadow outcomes can be recorded through
+`POST /candidates/{candidate_id}/outcome` and survive SQLite restart. This
+keeps parked, discarded, blocked, and expired candidates available for later
+selection-bias-aware gate analysis.
+
 Additional Coordinator modules are available for `EvidenceRecord` and
 content-addressed `EvidenceStore`, `DecisionCoverageMatrix`, typed
 `AgentPacket`, `OpportunityClock` and information-value routing, gate

@@ -10,6 +10,7 @@ from pathlib import Path
 from .coordinator import Candidate, CandidateState, CandidateType, Coordinator
 from .coordination import AgentPacket, CoverageStatus, IndependenceRecord, Vote
 from .evidence import EvidenceModality, EvidenceRecord
+from .analytics import ShadowOutcome
 from .registry import SQLiteRegistry
 from .service import CoordinatorService
 
@@ -30,7 +31,7 @@ def _jsonable(value: Any) -> Any:
 
 def create_app(service: CoordinatorService | None = None, database_path: str | None = None):
     try:
-        from fastapi import FastAPI, HTTPException
+        from fastapi import FastAPI, Header, HTTPException
         from pydantic import BaseModel, Field
     except ImportError as error:  # pragma: no cover
         raise RuntimeError("install eig[web] to use the HTTP application") from error
@@ -115,12 +116,23 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         calibration: str = "UNKNOWN"
         config_version: str = "1"
 
+    class OutcomeRequest(BaseModel):
+        disposition: str = Field(min_length=1, max_length=64)
+        realized_return: Decimal | None = None
+        realized_loss: Decimal | None = None
+        resolved_at: str | None = None
+
     if service is None:
         configured_path = database_path or os.environ.get("EIG_DATABASE_PATH", ":memory:")
         coordinator_service = CoordinatorService(Coordinator(registry=SQLiteRegistry(configured_path)))
     else:
         coordinator_service = service
     app = FastAPI(title="HedgeHog Trade Coordinator", version="0.1.0")
+
+    def require_mutation_auth(api_key: str | None) -> None:
+        expected = os.environ.get("EIG_API_KEY")
+        if expected and api_key != expected:
+            raise HTTPException(status_code=401, detail="authenticated mutation required")
 
     ui_path = Path(__file__).resolve().parents[2] / "ui" / "index.html"
 
@@ -144,9 +156,10 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return [_jsonable(candidate) for candidate in coordinator_service.get_meeting_surface()]
 
     @app.post("/evidence", status_code=201)
-    def evidence(request: EvidenceRequest) -> dict[str, Any]:
+    def evidence(request: EvidenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
         try:
-            record = coordinator_service.register_evidence(EvidenceRecord(**request.model_dump()))
+            record = coordinator_service.idempotent(idempotency_key, "evidence", lambda: coordinator_service.register_evidence(EvidenceRecord(**request.model_dump())))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return _jsonable(record)
@@ -158,10 +171,20 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"evidence {evidence_id} not found") from error
 
-    @app.post("/packets", status_code=201)
-    def packet(request: PacketRequest) -> dict[str, Any]:
+    @app.post("/candidates/{candidate_id}/outcome", status_code=201)
+    def outcome(candidate_id: str, request: OutcomeRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
         try:
-            result = coordinator_service.submit_agent_packet(AgentPacket(**request.model_dump()))
+            result = coordinator_service.idempotent(idempotency_key, "outcome", lambda: coordinator_service.record_outcome(ShadowOutcome(candidate_id, **request.model_dump())))
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
+        return _jsonable(result)
+
+    @app.post("/packets", status_code=201)
+    def packet(request: PacketRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        try:
+            result = coordinator_service.idempotent(idempotency_key, "packet", lambda: coordinator_service.submit_agent_packet(AgentPacket(**request.model_dump())))
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         return _jsonable(result)
@@ -186,13 +209,15 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return [_jsonable(record) for record in coordinator_service.get_agent_independence()]
 
     @app.post("/independence", status_code=201)
-    def independence_register(request: IndependenceRequest) -> dict[str, Any]:
-        return _jsonable(coordinator_service.register_independence(IndependenceRecord(**request.model_dump())))
+    def independence_register(request: IndependenceRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
+        return _jsonable(coordinator_service.idempotent(idempotency_key, "independence", lambda: coordinator_service.register_independence(IndependenceRecord(**request.model_dump()))))
 
     @app.post("/candidates", status_code=201)
-    def register(request: CandidateRequest) -> dict[str, Any]:
+    def register(request: CandidateRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
         try:
-            candidate = coordinator_service.coordinator.register_candidate(Candidate(**request.model_dump()))
+            candidate = coordinator_service.idempotent(idempotency_key, "candidate", lambda: coordinator_service.coordinator.register_candidate(Candidate(**request.model_dump())))
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
         return _jsonable(candidate)
@@ -205,9 +230,10 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
             raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
 
     @app.post("/candidates/{candidate_id}/disposition")
-    def disposition(candidate_id: str, request: DispositionRequest) -> dict[str, Any]:
+    def disposition(candidate_id: str, request: DispositionRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
         try:
-            candidate = coordinator_service.coordinator.set_disposition(candidate_id, request.disposition, request.reason)
+            candidate = coordinator_service.idempotent(idempotency_key, "disposition", lambda: coordinator_service.coordinator.set_disposition(candidate_id, request.disposition, request.reason))
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
         except ValueError as error:
@@ -215,9 +241,10 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(candidate)
 
     @app.post("/candidates/{candidate_id}/proposal", status_code=201)
-    def proposal(candidate_id: str, request: ProposalRequest) -> dict[str, Any]:
+    def proposal(candidate_id: str, request: ProposalRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
         try:
-            result = coordinator_service.coordinator.generate_execution_proposal(candidate_id, **request.model_dump())
+            result = coordinator_service.idempotent(idempotency_key, "proposal", lambda: coordinator_service.coordinator.generate_execution_proposal(candidate_id, **request.model_dump()))
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"candidate {candidate_id} not found") from error
         except ValueError as error:
@@ -225,9 +252,10 @@ def create_app(service: CoordinatorService | None = None, database_path: str | N
         return _jsonable(result)
 
     @app.post("/proposals/{proposal_id}/approve")
-    def approve(proposal_id: str, request: ApprovalRequest) -> dict[str, Any]:
+    def approve(proposal_id: str, request: ApprovalRequest, x_api_key: str | None = Header(default=None), idempotency_key: str | None = Header(default=None)) -> dict[str, Any]:
+        require_mutation_auth(x_api_key)
         try:
-            result = coordinator_service.coordinator.approve_exact(proposal_id, request.payload_hash)
+            result = coordinator_service.idempotent(idempotency_key, "approval", lambda: coordinator_service.coordinator.approve_exact(proposal_id, request.payload_hash))
         except KeyError as error:
             raise HTTPException(status_code=404, detail=f"proposal {proposal_id} not found") from error
         except ValueError as error:

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
-from .coordinator import GateEvaluation
+if TYPE_CHECKING:
+    from .coordinator import GateEvaluation
 
 
 @dataclass(frozen=True)

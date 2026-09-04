@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Any, Iterable, Mapping
 
 from .types import utcnow
+from .analytics import ShadowOutcome
 
 
 class CandidateType(str, Enum):
@@ -211,12 +212,14 @@ class Coordinator:
         self.gate_evaluations: list[GateEvaluation] = []
         self.lcaes: list[LCAE] = []
         self.proposals: dict[str, ExecutionProposal] = {}
+        self.outcomes: dict[str, ShadowOutcome] = {}
         self.kill_switch_locked = False
         self.account_available = True
         if registry is not None:
             self.candidates = {candidate.candidate_id: candidate for candidate in registry.load_candidates()}
             self.events = [event for candidate in self.candidates.values() for event in registry.load_events(candidate.candidate_id)]
             self.proposals = {proposal.proposal_id: proposal for proposal in registry.load_proposals()}
+            self.outcomes = {outcome.candidate_id: outcome for outcome in registry.load_outcomes()}
 
     def _persist_candidate(self, candidate: Candidate) -> None:
         if self.registry is not None:
@@ -238,6 +241,14 @@ class Coordinator:
 
     def get_candidate(self, candidate_id: str) -> Candidate:
         return self.candidates[candidate_id]
+
+    def record_outcome(self, outcome: ShadowOutcome) -> ShadowOutcome:
+        if outcome.candidate_id not in self.candidates:
+            raise KeyError(outcome.candidate_id)
+        self.outcomes[outcome.candidate_id] = outcome
+        if self.registry is not None:
+            self.registry.save_outcome(outcome)
+        return outcome
 
     def list_candidates(self, candidate_type: CandidateType | None = None) -> tuple[Candidate, ...]:
         candidates = self.candidates.values()

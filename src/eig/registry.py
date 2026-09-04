@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .coordinator import Candidate, CandidateState, CandidateType, ExecutionProposal, LifecycleEvent, Sleeve
+from .analytics import ShadowOutcome
 
 
 def _encode(value: Any) -> Any:
@@ -67,6 +68,11 @@ class SQLiteRegistry:
             CREATE TABLE IF NOT EXISTS proposals (
                 proposal_id TEXT PRIMARY KEY,
                 candidate_id TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                FOREIGN KEY(candidate_id) REFERENCES candidates(candidate_id)
+            );
+            CREATE TABLE IF NOT EXISTS shadow_outcomes (
+                candidate_id TEXT PRIMARY KEY,
                 payload TEXT NOT NULL,
                 FOREIGN KEY(candidate_id) REFERENCES candidates(candidate_id)
             );
@@ -130,6 +136,19 @@ class SQLiteRegistry:
     def load_proposals(self) -> tuple[ExecutionProposal, ...]:
         rows = self.connection.execute("SELECT payload FROM proposals ORDER BY rowid").fetchall()
         return tuple(ExecutionProposal(**_decode(json.loads(row[0]))) for row in rows)
+
+    def save_outcome(self, outcome: ShadowOutcome) -> None:
+        payload = json.dumps(_encode(asdict(outcome)), sort_keys=True)
+        self.connection.execute(
+            "INSERT INTO shadow_outcomes(candidate_id, payload) VALUES (?, ?) "
+            "ON CONFLICT(candidate_id) DO UPDATE SET payload=excluded.payload",
+            (outcome.candidate_id, payload),
+        )
+        self.connection.commit()
+
+    def load_outcomes(self) -> tuple[ShadowOutcome, ...]:
+        rows = self.connection.execute("SELECT payload FROM shadow_outcomes ORDER BY candidate_id").fetchall()
+        return tuple(ShadowOutcome(**_decode(json.loads(row[0]))) for row in rows)
 
     def close(self) -> None:
         self.connection.close()

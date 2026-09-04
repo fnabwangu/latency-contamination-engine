@@ -10,7 +10,7 @@ def test_http_adapter_exposes_safe_surface():
     except RuntimeError:
         pytest.skip("fastapi is not installed")
     routes = {route.path for route in app.routes}
-    assert {"/health", "/candidates", "/meeting-surface", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
+    assert {"/health", "/candidates", "/meeting-surface", "/evidence", "/evidence/{evidence_id}", "/packets", "/coverage", "/coverage/{factor}", "/independence", "/candidates/{candidate_id}/outcome", "/ui", "/candidates/{candidate_id}/proposal", "/proposals/{proposal_id}/approve"} <= routes
     assert not any("broker" in path for path in routes)
 
 
@@ -44,3 +44,18 @@ def test_http_packet_coverage_and_independence_flow():
     packet_id = response.json()["packet_id"]
     assert client.post("/coverage/regime", json={"owner": "MACRO", "packet_id": packet_id}).status_code == 200
     assert client.post("/independence", json={"agent_id": "MACRO", "provider": "local", "model_version": "1", "prompt_version": "1", "error_correlation": 0.1}).status_code == 201
+
+
+def test_mutations_require_configured_key_and_idempotency(monkeypatch):
+    try:
+        monkeypatch.setenv("EIG_API_KEY", "test-key")
+        client = TestClient(create_app())
+    except RuntimeError:
+        pytest.skip("fastapi is not installed")
+    payload = {"candidate_id": "auth-1", "candidate_type": "ALGO_SINGLE", "name": "Auth candidate", "thesis": "thesis", "catalyst": "catalyst", "horizon": "day"}
+    assert client.post("/candidates", json=payload).status_code == 401
+    headers = {"X-API-Key": "test-key", "Idempotency-Key": "candidate-auth-1"}
+    first = client.post("/candidates", json=payload, headers=headers)
+    second = client.post("/candidates", json=payload, headers=headers)
+    assert first.status_code == second.status_code == 201
+    assert first.json()["candidate_id"] == second.json()["candidate_id"] == "auth-1"
